@@ -26,7 +26,7 @@ OVERWRITE_RINEX = False  # overwrite existing rinex filex
 DEBUG = True            # True 使用串行执行方式
 
 # specify location of input folder and files
-data_path = 'IGR230312'
+data_path = 'IGR230307'
 datadir = os.path.join(data_path, 'processed')
 
 # input structure for rinex conversion

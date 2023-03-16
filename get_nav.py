@@ -11,7 +11,7 @@ import gzip
 import os.path as osp
 from tools.tools import *
 
-data_path = r'IGR230312/processed'
+data_path = r'IGR230307/processed'
 
 # Use these to access the nav files from CDDIS.  
 # This requires and account and setup of a .netrc file as described at https://cddis.nasa.gov/Data_and_Derived_Products/CreateNetrcFile.html.  
@@ -24,10 +24,12 @@ print(walk_path)
 paths = os.walk(walk_path)
 urls = []
 fname_list = []
+
 for path, dir_list, file_list in paths:
+    print(path, dir_list, file_list)
     for file_name in file_list:
         if re.match(r'gnss_log_[0-9_]*.txt', file_name):
-            print(os.path.join(path, file_name))
+            # print(os.path.join(path, file_name))
             ymd = file_name.split('_')
             ymd = list_ind(ymd, [2, 3, 4])
             doy = datetime(int(ymd[0]), int(ymd[1]), int(ymd[2])).timetuple().tm_yday # get day of year
@@ -37,7 +39,8 @@ for path, dir_list, file_list in paths:
             if url not in urls:
                 urls.append(url)
             rel_path = '' if walk_path==path else path.replace(walk_path+osp.sep, '')
-            fname_list.append([rel_path, file_name, fname[:-3]])
+            fname_list.append([rel_path, file_name, fname[:-3]]) 
+            # ['vivox60\\03_07_16_40\\supplementary', 'gnss_log_2023_03_07_16_40_20.txt', 'BRDM00DLR_S_20230660000_01D_MN.rnx']
 
 eph_path = osp.join(walk_path, 'ephemeris')
 os.makedirs(eph_path, exist_ok=True)
