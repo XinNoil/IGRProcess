@@ -16,13 +16,13 @@ import os.path as osp
 from multiprocessing import Pool
 import tools.gnsslogger_to_rnx as rnx
 from time import time
-from tools.tools import read_file
+from tools.tools import read_file, get_info
 
 # set run parameters
 maxepoch = None # max number of epochs, used for debug, None = no limit
 
 # Set solution choices
-OVERWRITE_RINEX = False  # overwrite existing rinex filex
+OVERWRITE_RINEX = True  # overwrite existing rinex filex
 DEBUG = True            # True 使用串行执行方式
 
 # specify location of input folder and files
@@ -93,13 +93,10 @@ def main():
                 try:
                     convert_rnx(*input)
                 except:
-                    print('convert failed')
-                    files = os.listdir(osp.dirname(input[0]))
-                    rnxfile = list(filter(lambda _: re.search(r'gnss_log_[0-9_]*.(23o)', _) is not None, files))
-                    if len(rnxfile)>0:
-                        rnxfile = rnxfile[0]
-                        print(f'find rnxfile {rnxfile}')
-                        shutil.copyfile(osp.join(osp.dirname(input[0]), rnxfile), input[1])
+                    info = get_info(osp.dirname(input[0]))
+                    rnx_file = info['23o']
+                    shutil.copyfile(osp.join(osp.dirname(input[0]), rnx_file), input[1])
+                    print(f'convert failed, use {rnx_file} directly')
 
 if __name__ == '__main__':
     t0 = time()

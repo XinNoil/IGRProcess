@@ -39,7 +39,7 @@ for path, dir_list, file_list in paths:
             rel_path = '' if walk_path==path else path.replace(walk_path+osp.sep, '')
             fname_list.append([rel_path, file_name, fname[:-3]])
 
-eph_path = osp.join(walk_path, 'ephemeris')
+eph_path = osp.join(osp.dirname(walk_path), 'ephemeris')
 os.makedirs(eph_path, exist_ok=True)
 save_json(osp.join(eph_path, 'ephemeris.json'), fname_list)
 
