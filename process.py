@@ -2,7 +2,7 @@ import os, shutil
 from tools.tools import read_file, write_file
 from GNSSLogger_convert import convert_RTKLite_log
 
-data_path = 'IGR230312'
+data_path = 'IGR230307'
 os.chdir(data_path)
 
 lines = read_file('path_list.txt')

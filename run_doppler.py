@@ -11,8 +11,6 @@ from itertools import dropwhile
 import re, datetime
 from tools.tools import set_args_config, pd2csv, check_dir
 
-sys.path.append(join(split(realpath(__file__))[0],'../../Tools'))
-
 pd.set_option('display.float_format',lambda x : '%.5f' % x)
 np.set_printoptions(precision=5) 
 GPS_TO_UTC = 315964782
@@ -48,7 +46,6 @@ terminal = f"{args.exe_file} -p 0 -e -ele {args.ele} -snr {args.snr} "\
 print("")
 print("running doppler .................................................... ")
 if len(args.out_path): check_dir(args.out_path)
-terminal = terminal
 print(terminal)
 os.system(terminal)
 
@@ -67,9 +64,9 @@ with open(pos_file) as f:
         df['vx'] = [float(i) for i in df['vx']]
         df['vy'] = [float(i) for i in df['vy']]
         df['vz'] = [float(i) for i in df['vz']]
-        df['timestamp'] = df.apply(lambda x: (int(1000*(x['week']*7*24*3600 + x['tow']))) + GPS_TO_UTC*1000, axis=1) # UTC时间
-        # df['epoch_time'] = df.apply(lambda x: int((x['week']*7*24*3600 + x['tow'] + pd.Timestamp(datetime.datetime(1980, 1, 6, 0, 0, 0), tz='utc').timestamp())*1000), axis=1) # GPS时间（用unix在线时间转化器转化的结果和rinex文件的时间一致）
-        pd2csv(df[['timestamp','vx','vy','vz']], csv_file) 
+        df['timestampUTC'] = df.apply(lambda x: (int(1000*(x['week']*7*24*3600 + x['tow']))) + GPS_TO_UTC*1000, axis=1) # UTC时间
+        df['timestamp'] = df.apply(lambda x: int((x['week']*7*24*3600 + x['tow'] + pd.Timestamp(datetime.datetime(1980, 1, 6, 0, 0, 0), tz='utc').timestamp())*1000), axis=1) # GPS时间（用unix在线时间转化器转化的结果和rinex文件的时间一致）
+        pd2csv(df[['timestamp','timestampUTC','vx','vy','vz']], csv_file) 
     else:
         print(f"[WARNING] {pos_file} is empty\n")
 
