@@ -1,3 +1,10 @@
 pandas
 utm
 pymap3d
+docopt-ng
+ipdb
+plotly
+seaborn
+scipy
+h5py
+pynmea2

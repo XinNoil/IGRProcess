@@ -42,7 +42,7 @@ for path, dir_list, file_list in paths:
             fname_list.append([rel_path, file_name, fname[:-3]]) 
             # ['vivox60\\03_07_16_40\\supplementary', 'gnss_log_2023_03_07_16_40_20.txt', 'BRDM00DLR_S_20230660000_01D_MN.rnx']
 
-eph_path = osp.join(walk_path, 'ephemeris')
+eph_path = osp.join(osp.dirname(walk_path), 'ephemeris')
 os.makedirs(eph_path, exist_ok=True)
 save_json(osp.join(eph_path, 'ephemeris.json'), fname_list)
 

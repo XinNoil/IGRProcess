@@ -1,5 +1,6 @@
 import os, shutil
 from tools.tools import read_file, write_file
+from GNSSLogger_convert import convert_RTKLite_log
 
 data_path = 'IGR230307'
 os.chdir(data_path)
@@ -30,3 +31,12 @@ for device in devices:
                     f'txt: {path[4]}',
                     f'23o: {path[5]}']
                    )
+
+rtk_path = os.path.join('origin','rtklite')
+rtk_files = list(filter(lambda x: x.endswith('txt'), os.listdir(rtk_path)))
+
+for rtk_file in rtk_files:
+    rtk_file_name = os.path.join(rtk_path, rtk_file)
+    csv_name = os.path.join(rtk_path, rtk_file.replace('txt','csv'))
+    print(rtk_file_name, csv_name)
+    convert_RTKLite_log(rtk_file_name=rtk_file_name, csv_name=csv_name)
