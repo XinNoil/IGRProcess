@@ -67,6 +67,7 @@ def main():
     suffix = arguments.suffix
 
     if suffix is None:
+        pdb.set_trace()
         suffixs = list(filter(lambda x: x.endswith('csv'), os.listdir(trip_dir)))
         for suffix in suffixs:
             print(f'python plot_trip.py {arguments.trip_dir} -s {suffix}')
@@ -77,6 +78,15 @@ if __name__ == "__main__":
     main()
 
 '''
+python plot_trip.py IGR230307/origin/rtklite -s 20230307161946gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307160401gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307144938gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307155133gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307151408gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307153521gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307164016gngga.csv
+python plot_trip.py IGR230307/origin/rtklite -s 20230307152423gngga.csv
+
 python plot_trip.py IGR230312/origin/rtklite -s 20230312171823gngga.csv
 python plot_trip.py IGR230312/origin/rtklite -s 20230312165422gngga.csv
 python plot_trip.py IGR230312/origin/rtklite -s 20230312172747gngga.csv
