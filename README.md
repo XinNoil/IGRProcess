@@ -23,3 +23,13 @@ IGRProcess
 * `python get_*.py`     <p>下载广播星历 / 转化rinex文件，二者不互相依赖可同时进行
 * `python run_*_all.py` <p>批量运行 单点定位 / 多普勒测速 / TDCP (需修改数据目录)
 
+Raw: utcTimeMillis, ChipsetElapsedRealtimeNanos
+IMU: utcTimeMillis, elapsedRealtimeNanos
+Fix: UnixTimeMillis, elapsedRealtimeNanos
+GNGGA: utcTimeMillis
+
+GNGGA: 
+0: GNSS fix not available
+1: GNSS fix valid
+4: RTK fixed ambiquities    (mm)
+5: RTK float ambiguities    (cm)

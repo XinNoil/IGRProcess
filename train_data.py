@@ -20,20 +20,24 @@ import pymap3d as pm
 import h5py
 
 from mtools import monkey as mk
-from mtools import read_file
+from mtools import read_file, write_file
 
-IGR_DIR = 'IGR230312'
+# IGR_DIR = 'IGR230307'
+IGR_DIR = 'IGR230307'
 DATA_DIR = "processed"
 OVERRIDE_FLAG = True
+PREPARE_TIME = 18
 
 USELESS_COLUMNS = set((
     'UncalAccel',
     'UncalGyro',
     'UncalMag',
     'OrientationDeg',
-    'Fix',
-    'elapsedRealtimeNanos',
+    'Fix'
 ))
+
+# not_neg_rollDeg_devices = ['Mi11', 'RedmiK40']
+not_neg_rollDeg_devices = []
 
 # 天津大学磁偏角
 MAG_DECLINATION = -7.516667
@@ -41,49 +45,16 @@ MAG_DECLINATION = -7.516667
 # ENU 基准坐标点
 ENU_BASE = [38.9961, 117.3050, 2]
 
-
-def reindex_and_interpolate(df:pd.DataFrame, desired_index:pd.Index):
-    # 标记数据是来自传感器还是插值
-    df.loc[:, 'Source'] = 'Sensor'
-    # 将两种index合并起来, 这个合并能够保证包含两个index的所有项并且不重复
-    union_index = df.index.union(desired_index)
-    # 首先将df上采样到union_index, 然后对空缺的地方插值
-    target_df = df.reindex(union_index).interpolate('index')
-    # 然后下采样到需要的index
-    target_df = target_df.reindex(desired_index)
-    target_df.loc[:, 'Source'] = target_df.loc[:, 'Source'].fillna('Inter')
-
-    # 检查重采样结果 这个是历史遗留问题, 能够保证进行的插值是线性插值
-    # 保留着更保险一点 检查完就扔掉
-    if 'utcTimeMillis' in target_df.columns:
-        if all(target_df['utcTimeMillis'].astype("int64") == target_df.index) == False:
-            print("[WARNING] timestamp diff std() != 0")
-            # pdb.set_trace()
-        target_df.drop(columns='utcTimeMillis', inplace=True)
-    elif 'UnixTimeMillis' in target_df.columns:
-        if all(target_df['UnixTimeMillis'].astype("int64") == target_df.index) == False:
-            print("[WARNING] timestamp diff std() != 0")
-            # pdb.set_trace()
-        target_df.drop(columns='UnixTimeMillis', inplace=True)
-        
-    return target_df
-
 def load_GNSSLogger_csv(csv_path:str) -> pd.DataFrame:
     # 读取csv, 删除无用列
     df = pd.read_csv(csv_path)
     df = df.drop(columns=set(df.columns).intersection(USELESS_COLUMNS), axis=1)
-
     # 不同的数据类型时间戳命名不一样 只有 Fix 时间戳那一列的名称是 UnixTimeMillis 其余的均为 utcTimeMillis
-    if csv_path.find('Fix') == -1:
-        timestamp_col_name = 'utcTimeMillis'
-    else:
-        timestamp_col_name = 'UnixTimeMillis'
-    
-    # time_index = pd.to_datetime(df[timestamp_col_name], unit='ms')
-    # time_index = time_index.dt.tz_localize("UTC").dt.tz_convert("Asia/Shanghai")
-
-    df = df.set_index(timestamp_col_name, drop=False)
-
+    if 'UnixTimeMillis' in df.columns.to_list():
+        df.rename(columns={"UnixTimeMillis": "utcTimeMillis"}, inplace=True)
+    if 'elapsedRealtimeNanos' in df.columns.to_list():    
+        df = df.set_index('elapsedRealtimeNanos', drop=False)
+    assert(all(df.index.duplicated())==False)
     return df
 
 '''
@@ -91,14 +62,20 @@ def load_GNSSLogger_csv(csv_path:str) -> pd.DataFrame:
     INPUT: csv_path
     OUTPUT: pd.Dataframe index=utcTimeMillis data=[utcTimeMillis, vx, vy, vz] 是 ECEF 坐标系下的
 '''
-def load_Doppler_csv(csv_path:str) -> pd.DataFrame:
+def load_Doppler_csv(csv_path:str, fix_df:pd.DataFrame) -> pd.DataFrame:
     # 读取csv 
-    df = pd.read_csv(csv_path)
-    # 修改时间戳名称
-    df.rename(columns={"timestamp": "utcTimeMillis"}, inplace=True)
-    # 设置时间戳为索引
-    df.set_index('utcTimeMillis', drop=False, inplace=True)
-
+    if os.path.exists(csv_path):
+        df = pd.read_csv(csv_path)
+        # 修改时间戳名称
+        df.rename(columns={"timestampUTC": "utcTimeMillis"}, inplace=True)
+        # 设置时间戳为索引
+        df['utcTimeMillis'] = (np.ceil(df['utcTimeMillis']/1e3)*1e3).astype("int64")
+        
+        df.drop_duplicates(subset=['utcTimeMillis'], keep='last', inplace=True)
+        df.set_index('utcTimeMillis', drop=False, inplace=True)
+        assert(all(df.index.duplicated())==False)
+    else:
+        df = get_empty_dop_df(fix_df['utcTimeMillis'], len(fix_df))
     return df
 
 '''
@@ -109,7 +86,7 @@ def load_Doppler_csv(csv_path:str) -> pd.DataFrame:
     Out: dop_enu_df: ENU 坐标系下的 多普勒测速结果DF index=utcTimeMillis data=[utcTimeMillis, ve, vn, vu]
 '''
 def get_dop_enu_df(dop_ecef_df:pd.DataFrame):
-    dop_ecef = dop_ecef_df.values # (N, 4): [utcTimeMillis, vx, vy, vz]
+    dop_ecef = dop_ecef_df[['utcTimeMillis', 'vx', 'vy', 'vx']].values # (N, 4): [utcTimeMillis, vx, vy, vz]
 
     # 起始位置的ECEF坐标
     ORI_BASE_ECEF = pm.geodetic2ecef(ENU_BASE[0], ENU_BASE[1], ENU_BASE[2])
@@ -127,26 +104,73 @@ def get_dop_enu_df(dop_ecef_df:pd.DataFrame):
     })
 
     dop_enu_df.set_index("utcTimeMillis", drop=False, inplace=True)
-
     return dop_enu_df
 
 
 def apply_IMU_bias(df:pd.DataFrame, name:str):
     # 对于需要校准的 acc gys 和 mag 数据 他们都是 [timestamp, rawx, rawy, rawz, biasx, biasy, biasz] 的列顺序
     # 因此 只要把后三列 加在 中间三列上就行了
-    calibrated_data = df.iloc[:, 1:4].values + df.iloc[:, -3:].values
+    calibrated_data = df.iloc[:, 2:5].values + df.iloc[:, -3:].values
 
     calibrated_df = pd.DataFrame(
         data = {
             'utcTimeMillis': df['utcTimeMillis'],
+            'elapsedRealtimeNanos': df['elapsedRealtimeNanos'],
             f"{name}X": calibrated_data[:, 0],
             f"{name}Y": calibrated_data[:, 1],
             f"{name}Z": calibrated_data[:, 2],
         }, 
         index=df.index
     )
-
+    
     return calibrated_df
+
+def get_empty_dop_df(index, df_len):
+    return pd.DataFrame({
+            "timestamp": index.values,
+            "utcTimeMillis": index.values,
+            "vx":np.zeros((df_len,)),
+            "vy":np.zeros((df_len,)),
+            "vz":np.zeros((df_len,)) 
+        })
+
+def align_utc_ela(df, fix_df):
+    desired_ela_index = fix_df.index.union(df['elapsedRealtimeNanos']).unique()
+    df.reindex(desired_ela_index)
+    df['utcTimeMillis'] = fix_df['utcTimeMillis'].reindex(desired_ela_index).interpolate('index', limit_area='inside')
+    df.set_index('utcTimeMillis', drop=False, inplace=True)
+    df.dropna(subset=['utcTimeMillis'], inplace=True)
+    df['utcTimeMillis'] = np.round(df['utcTimeMillis']).astype('int64')
+    return df
+
+def reindex_and_interpolate(df:pd.DataFrame, desired_index:pd.Index):
+    # 标记数据是来自传感器还是插值
+    df.loc[:, 'Source'] = 'Sensor'
+    # 将两种index合并起来, 这个合并能够保证包含两个index的所有项并且不重复
+    union_index = df.index.union(desired_index).dropna()
+    
+    all_index = df.index.values
+    m = np.zeros_like(all_index, dtype=bool)
+    m[np.unique(all_index, return_index=True)[1]] = True
+    dup_index = all_index[~m]
+    if len(dup_index):
+        print(dup_index)
+        pdb.set_trace()
+    # 首先将df上采样到union_index, 然后对空缺的地方插值
+    target_df = df.reindex(union_index).interpolate('index')
+    # 然后下采样到需要的index
+    target_df = target_df.reindex(desired_index)
+    target_df.loc[:, 'Source'] = target_df.loc[:, 'Source'].fillna('Inter')
+
+    # 检查重采样结果 这个是历史遗留问题, 能够保证进行的插值是线性插值
+    # 保留着更保险一点 检查完就扔掉
+    if 'utcTimeMillis' in target_df.columns:
+        if all(np.round(target_df['utcTimeMillis']).astype("int64") == target_df.index) == False:
+            print("[WARNING] timestamp diff std() != 0")
+            pdb.set_trace()
+        target_df.drop(columns='utcTimeMillis', inplace=True)
+        
+    return target_df
 
 def get_and_save_dataset(phone_dir, trip_dir):
     # 读取所有的传感器数据
@@ -156,26 +180,14 @@ def get_and_save_dataset(phone_dir, trip_dir):
     ori_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/OrientationDeg.csv")
     fix_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/Fix.csv")
     gngga_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/GNGGA.csv")
-    dop_ecef_df = load_Doppler_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/supplementary/doppler.csv")
+    dop_ecef_df = load_Doppler_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/supplementary/doppler.csv", fix_df)
 
-    # 确保传感器时间戳都是唯一的
-    try:
-        assert(all(acc_df.index.duplicated())==False)
-        assert(all(gys_df.index.duplicated())==False)
-        assert(all(mag_df.index.duplicated())==False)
-        assert(all(ori_df.index.duplicated())==False)
-        assert(all(fix_df.index.duplicated())==False)
-        assert(all(gngga_df.index.duplicated())==False)
-        assert(all(dop_ecef_df.index.duplicated())==False)
-    except:
-        pdb.set_trace()
-
-    # 将 ECEF 测速结果转换为 ENU
-    dop_enu_df = get_dop_enu_df(dop_ecef_df)
-
-    # 需要对 rollDeg 进行取反, 这样才是真正的旋转矩阵
-    ori_df.loc[:, 'rollDeg'] = -ori_df.loc[:, 'rollDeg']
+    fix_df = fix_df.query(f"Provider == 'GPS'").drop("Provider", axis=1)
     
+    # 需要对 rollDeg 进行取反, 这样才是真正的旋转矩阵
+    if phone_dir not in not_neg_rollDeg_devices:
+        ori_df.loc[:, 'rollDeg'] = -ori_df.loc[:, 'rollDeg']
+
     # 将 LLA 转换为 ENU
     pos_e, pos_n, pos_u = pm.geodetic2enu(fix_df['LatitudeDegrees'], fix_df['LongitudeDegrees'], fix_df['AltitudeMeters'], ENU_BASE[0], ENU_BASE[1], ENU_BASE[2])
     fix_df = fix_df.assign(PosE=pos_e, PosN=pos_n, PosU=pos_u)
@@ -189,8 +201,8 @@ def get_and_save_dataset(phone_dir, trip_dir):
     mag_df = apply_IMU_bias(mag_df, "Mag")
 
     # 删除 Fix 前 18s 的数据 以及不是GPS给出的定位结果
-    valid_time_start = fix_df.iloc[0].UnixTimeMillis + 18*1000
-    fix_df = fix_df.query(f"Provider == 'GPS' and UnixTimeMillis >= {valid_time_start}").drop("Provider", axis=1)
+    true_time_start = fix_df.iloc[0].utcTimeMillis + PREPARE_TIME*1000
+    fix_df = fix_df.query(f"utcTimeMillis >= {true_time_start}")
 
     # # 删除 GNGGA 中第一个 Quality != 4 和 5 的所有数据
     # if gngga_df['Quality'].ne(4).any():
@@ -198,8 +210,20 @@ def get_and_save_dataset(phone_dir, trip_dir):
     #     gngga_valid_df = gngga_df.query(f"utcTimeMillis < {invalid_start}")
     #     print(f"[WARNING] not all RTKLite Quality is 4 so Deleting {len(gngga_df)-len(gngga_valid_df)} rows of RTKLite Data")
     #     gngga_df = gngga_valid_df
-
+    
+    # 将 ECEF 测速结果转换为 ENU
+    dop_enu_df = get_dop_enu_df(dop_ecef_df)
+    
     # 生成同步对齐时间戳
+    # pdb.set_trace()
+    acc_df = align_utc_ela(acc_df, fix_df)
+    gys_df = align_utc_ela(gys_df, fix_df)
+    mag_df = align_utc_ela(mag_df, fix_df)
+    ori_df = align_utc_ela(ori_df, fix_df)
+
+    fix_df.set_index('utcTimeMillis', drop=False, inplace=True)
+    gngga_df.set_index('utcTimeMillis', drop=False, inplace=True)
+
     # 选择这几个传感器 第一个时间戳最晚的那个 和 最后一个时间戳最早的那个 作为整体的起始和结束时间戳, 并对齐到 10ms
     time_start = max([i.index.min() for i in [acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df]]) # dop_enu_df
     time_end = min([i.index.max() for i in [acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df]]) # dop_enu_df
@@ -242,42 +266,21 @@ def get_and_save_dataset(phone_dir, trip_dir):
     acc_df = acc_df.assign(AccE=acc_enu[:,0], AccN=acc_enu[:,1], AccU=acc_enu[:,2])
     gys_df = gys_df.assign(GysE=gys_enu[:,0], GysN=gys_enu[:,1], GysU=gys_enu[:,2])
 
+    dfs = (acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df, dop_enu_df)
+    dfs_names = ("acc", "gys", "mag", "ori", "fix", "gngga", "dop")
+    save_data_h5(phone_dir, trip_dir, dfs, dfs_names)
+    return (time_end-time_start)/1000
 
-    # 画 rtk轨迹 并在上面画加速度方向
-    # draw_rtk_df = gngga_df.query('Source=="Sensor"')[['PosE', 'PosN']]
-    # draw_acc_df = acc_df.loc[draw_rtk_df.index, ['AccE', 'AccN']]
-    # draw_rtk_np = draw_rtk_df.values
-    # draw_acc_np = draw_acc_df.values
-    # plt.figure(figsize=(8,6))
-    # plt.plot(draw_rtk_np[:, 0], draw_rtk_np[:, 1], label="rtk")
-    # for (pos, acc) in zip(draw_rtk_np, draw_acc_np):
-    #     plt.annotate("", xy=(pos+acc), xytext=(pos), arrowprops=dict(arrowstyle="->", color="r")) # xytext（坐标） 指向 xy
-    # plt.show()
-    # exit()
-
-    # 保存为 h5
+def save_data_h5(phone_dir, trip_dir, dfs, dfs_names):
     h5f_path = f"{DATA_DIR}/{phone_dir}/{trip_dir}/data.h5"
     if os.path.exists(h5f_path):
         print(f"Overriding {h5f_path}")
         os.remove(h5f_path)
 
-    acc_df.reset_index(inplace=True)
-    gys_df.reset_index(inplace=True)
-    mag_df.reset_index(inplace=True)
-    ori_df.reset_index(inplace=True)
-    fix_df.reset_index(inplace=True)
-    gngga_df.reset_index(inplace=True)
-    dop_enu_df.reset_index(inplace=True)
-
     store = pd.HDFStore(f"{DATA_DIR}/{phone_dir}/{trip_dir}/data.h5")
-    store.put("acc", acc_df, index=False)
-    store.put("gys", gys_df, index=False)
-    store.put("mag", mag_df, index=False)
-    store.put("ori", ori_df, index=False)
-    store.put("fix", fix_df, index=False)
-    store.put("gngga", gngga_df, index=False)
-    store.put("dop", dop_enu_df, index=False)
-
+    for df, df_name in zip(dfs, dfs_names):
+        df.reset_index(inplace=True)
+        store.put(df_name, df, index=False)
     store.close()
 
     print("\n")
@@ -300,12 +303,22 @@ def generate_all_h5():
 def main():
     os.chdir(IGR_DIR)
     generate_all_h5()
-    # get_and_save_dataset("Mate30", "01_12_12_11")
     
 if __name__ == "__main__":
     main()
 
 
+    # 画 rtk轨迹 并在上面画加速度方向
+    # draw_rtk_df = gngga_df.query('Source=="Sensor"')[['PosE', 'PosN']]
+    # draw_acc_df = acc_df.loc[draw_rtk_df.index, ['AccE', 'AccN']]
+    # draw_rtk_np = draw_rtk_df.values
+    # draw_acc_np = draw_acc_df.values
+    # plt.figure(figsize=(8,6))
+    # plt.plot(draw_rtk_np[:, 0], draw_rtk_np[:, 1], label="rtk")
+    # for (pos, acc) in zip(draw_rtk_np, draw_acc_np):
+    #     plt.annotate("", xy=(pos+acc), xytext=(pos), arrowprops=dict(arrowstyle="->", color="r")) # xytext（坐标） 指向 xy
+    # plt.show()
+    # exit()
 
 '''
 def apply_ori(imu_df):
