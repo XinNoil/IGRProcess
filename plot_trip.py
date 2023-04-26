@@ -95,4 +95,14 @@ python plot_trip.py IGR230312/origin/rtklite -s 20230312170545gngga.csv
 python plot_trip.py IGR230312/origin/rtklite -s 20230312160511gngga.csv
 python plot_trip.py IGR230312/origin/rtklite -s 20230312164447gngga.csv
 python plot_trip.py IGR230312/origin/rtklite -s 20230312173738gngga.csv
+
+python plot_trip.py IGR230415/origin/rtklite -s 20230415145239gngga.csv
+python plot_trip.py IGR230415/origin/rtklite -s 20230415150333gngga.csv
+python plot_trip.py IGR230415/origin/rtklite -s 20230415152021gngga.csv
+python plot_trip.py IGR230415/origin/rtklite -s 20230415152949gngga.csv
+python plot_trip.py IGR230415/origin/rtklite -s 20230416181855gngga.csv
+python plot_trip.py IGR230415/origin/rtklite -s 20230416183648gngga.csv
+
+
+python plot_trip.py IGRData/IGR230419/origin/rtklite -s 20230419105342gngga.csv
 '''

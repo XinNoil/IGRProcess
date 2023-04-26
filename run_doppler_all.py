@@ -8,7 +8,7 @@ from datetime import datetime
 # from mtools import load_json
 from tools.tools import load_json, read_file, get_info
 
-data_path = 'IGR230307'
+data_path = 'IGR230415'
 datadir = os.path.join(data_path, 'processed')
 
 run_doppler_file = 'run_doppler.py'

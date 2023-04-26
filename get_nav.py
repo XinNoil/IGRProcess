@@ -11,7 +11,7 @@ import gzip
 import os.path as osp
 from tools.tools import *
 
-data_path = r'IGR230307/processed'
+data_path = r'IGR230415/processed'
 
 # Use these to access the nav files from CDDIS.  
 # This requires and account and setup of a .netrc file as described at https://cddis.nasa.gov/Data_and_Derived_Products/CreateNetrcFile.html.  
@@ -62,7 +62,8 @@ for url in urls:
         print(f'Fail nav: {url}')
 
 for path, file_name, fname in fname_list:
-    shutil.copyfile(osp.join(eph_path, fname), osp.join(walk_path, path, fname))
+    if not os.path.exists(osp.join(walk_path, path, fname)):
+        shutil.copyfile(osp.join(eph_path, fname), osp.join(walk_path, path, fname))
     info = read_file(osp.join(walk_path, path, 'info.yaml'))
     eph_info = f'eph: {fname}'
     if eph_info not in info:

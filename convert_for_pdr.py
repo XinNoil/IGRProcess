@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 """
 Usage:
-  train_data.py <data_path> [options]
+  convert_for_pdr.py <data_path> [options]
 
 Options:
   -o <overwrite>, --overwrite <overwrite>       overwrite   [default: 1]
@@ -40,7 +40,8 @@ USELESS_COLUMNS = set((
     'UncalGyro',
     'UncalMag',
     'OrientationDeg',
-    'Fix'
+    'Fix',
+    'Mag'
 ))
 
 HEADER_DEF = {
@@ -363,85 +364,111 @@ def save_data_h5(phone_dir, trip_dir, dfs, dfs_names):
 
     print("\n")
 
-def generate_all_h5(OVERRIDE_FLAG, PREPARE_TIME, INDOOR):
-    phone_dirs = sorted(read_file('devices.txt'))
-    for phone_dir in phone_dirs:
-        if not os.path.isdir(f"{DATA_DIR}/{phone_dir}"): 
-            continue
-        for trip_dir in sorted(os.listdir(f"{DATA_DIR}/{phone_dir}")):
-            if not os.path.isdir(f"{DATA_DIR}/{phone_dir}/{trip_dir}"):
-                continue
-            if os.path.exists(f"{DATA_DIR}/{phone_dir}/{trip_dir}/data.h5") and OVERRIDE_FLAG == 0:
-                continue
-            else:
-                print(f"#### {phone_dir}/{trip_dir} ####")
-                if INDOOR:
-                    get_and_save_dataset_indoor(phone_dir, trip_dir, PREPARE_TIME)
-                else:
-                    get_and_save_dataset(phone_dir, trip_dir, PREPARE_TIME)
 
 def main():
-    generate_all_h5(OVERRIDE_FLAG, PREPARE_TIME, INDOOR)
-    
+    DATA_DIR = fr"/home/wjk/Workspace/Datasets/IGR/IGRData/IGR230422/processed/Mate30_2"
+    Trip_list = [
+        # '04-21-12-09-00',
+        # '04-21-12-25-32',
+        '04-22-18-57-51',
+        '04-22-19-02-24',
+        '04-22-19-47-43',
+        '04-22-20-01-42',
+        '04-22-20-23-07',
+        '04-23-17-50-47',
+        '04-23-17-59-22',
+    ]
+    for trip_dir in sorted(Trip_list):
+        
+        # 读取所有的传感器数据
+        acc_df = load_GNSSLogger_csv(f"{DATA_DIR}/{trip_dir}/UncalAccel.csv")
+        gys_df = load_GNSSLogger_csv(f"{DATA_DIR}/{trip_dir}/UncalGyro.csv")
+        mag_df = load_GNSSLogger_csv(f"{DATA_DIR}/{trip_dir}/Mag.csv")
+        rot_df = load_GNSSLogger_csv(f"{DATA_DIR}/{trip_dir}/GameRot.csv")
+
+        # 对 IMU 数据施加校准
+        acc_df = apply_IMU_bias(acc_df, "Acc")
+        gys_df = apply_IMU_bias(gys_df, "Gys")
+
+        rot_df.drop_duplicates(subset=['utcTimeMillis'], keep='last', inplace=True)
+        acc_df = align_utc_ela(acc_df, rot_df)
+        gys_df = align_utc_ela(gys_df, rot_df)
+        mag_df = align_utc_ela(mag_df, rot_df)
+        rot_df = align_utc_ela(rot_df, rot_df)
+
+        # 选择这几个传感器 第一个时间戳最晚的那个 和 最后一个时间戳最早的那个 作为整体的起始和结束时间戳, 并对齐到 10ms
+        time_start = max([i.index.min() for i in [acc_df, gys_df, mag_df, rot_df]])
+        time_end   = min([i.index.max() for i in [acc_df, gys_df, mag_df, rot_df]])
+        time_start = np.int64(np.ceil(time_start/10)*10)
+        time_end   = np.int64(np.floor(time_end/10)*10)
+
+        print(f"Total: {(time_end-time_start)/60000:.2f} min Data")
+
+        # 时间过少就停下来看一看
+        if time_end-time_start < 100000:
+            print([i.index.min() for i in [acc_df, gys_df, mag_df]]) # dop_enu_df
+            print([i.index.max() for i in [acc_df, gys_df, mag_df]]) # dop_enu_df
+            if time_end-time_start < 0:
+                print('time_end-time_start < 0')
+                pdb.set_trace()
+                return
+            
+
+        # 同步后的采样时间戳 以10ms为间隔, 即100Hz
+        desired_index = pd.RangeIndex(time_start, time_end, 10, name="timestamp")
+        # desired_index = pd.date_range(time_start, time_end, freq='10L')
+
+        # 只保留需要的列, 然后进行插值
+        acc_df = reindex_and_interpolate(acc_df, desired_index)
+        gys_df = reindex_and_interpolate(gys_df, desired_index)
+        mag_df = reindex_and_interpolate(mag_df, desired_index)
+        rot_df = reindex_and_interpolate(rot_df, desired_index)
+
+
+        # 施加旋转矩阵
+        rot = R.from_quat(rot_df[['quaternionX','quaternionY','quaternionZ','quaternionW']])
+        acc_enu = rot.apply(acc_df[['AccX', 'AccY', 'AccZ']]) # , inverse=True
+        gys_enu = rot.apply(gys_df[['GysX', 'GysY', 'GysZ']]) # , inverse=True
+        # mag_enu = rot.apply(gys_df[['GysX', 'GysY', 'GysZ']]) # , inverse=True
+
+        acc_df = acc_df.assign(AccE=acc_enu[:,0], AccN=acc_enu[:,1], AccU=acc_enu[:,2])
+        gys_df = gys_df.assign(GysE=gys_enu[:,0], GysN=gys_enu[:,1], GysU=gys_enu[:,2])
+
+        # vel_E = integrate.simpson(acc_df['AccE'], acc_df.index.values)
+        # pdb.set_trace()
+        OUTDIR = fr'/home/wjk/Workspace/Datasets/IGR/IGRProcessed/ForPDR'
+        os.makedirs(f"{OUTDIR}/{trip_dir}", exist_ok=True)
+
+        out_acc_df = pd.DataFrame({
+            'Time (s)': acc_df.index.values/1000,
+            'X (m/s^2)': acc_df['AccX'],
+            'Y (m/s^2)': acc_df['AccY'],
+            'Z (m/s^2)': acc_df['AccZ'],
+        })
+        out_acc_df.to_csv(f"{OUTDIR}/{trip_dir}/Accelerometer.csv", index=False)
+
+        # "X (rad/s)","Y (rad/s)","Z (rad/s)"
+        out_gys_df = pd.DataFrame({
+            'Time (s)': gys_df.index.values/1000,
+            'X (rad/s)': gys_df['GysX'],
+            'Y (rad/s)': gys_df['GysY'],
+            'Z (rad/s)': gys_df['GysZ'],
+        })
+        out_gys_df.to_csv(f"{OUTDIR}/{trip_dir}/Gyroscope.csv", index=False)
+
+        out_mag_df = pd.DataFrame({
+            'Time (s)': mag_df.index.values/1000,
+            'X (µT)': mag_df['X'],
+            'Y (µT)': mag_df['Y'],
+            'Z (µT)': mag_df['Z'],
+        })
+        out_mag_df.to_csv(f"{OUTDIR}/{trip_dir}/Magnetometer.csv", index=False)
+
+
+        print(f"{trip_dir} Done")
+
+
+
+        
 if __name__ == "__main__":
-    arguments = docopt(__doc__)
-    print(arguments)
-    IGR_DIR = arguments.data_path
-    OVERRIDE_FLAG = int(arguments.overwrite)
-    PREPARE_TIME = int(arguments.preparetime)
-    INDOOR = int(arguments.indoor)
-    os.chdir(os.path.join('IGRData', IGR_DIR))
     main()
-
-# python train_data.py IGR_indoor_test -i 1
-
-
-    # 画 rtk轨迹 并在上面画加速度方向
-    # draw_rtk_df = gngga_df.query('Source=="Sensor"')[['PosE', 'PosN']]
-    # draw_acc_df = acc_df.loc[draw_rtk_df.index, ['AccE', 'AccN']]
-    # draw_rtk_np = draw_rtk_df.values
-    # draw_acc_np = draw_acc_df.values
-    # plt.figure(figsize=(8,6))
-    # plt.plot(draw_rtk_np[:, 0], draw_rtk_np[:, 1], label="rtk")
-    # for (pos, acc) in zip(draw_rtk_np, draw_acc_np):
-    #     plt.annotate("", xy=(pos+acc), xytext=(pos), arrowprops=dict(arrowstyle="->", color="r")) # xytext（坐标） 指向 xy
-    # plt.show()
-    # exit()
-
-'''
-def apply_ori(imu_df):
-    euler = imu_df[['yawDeg', 'rollDeg', 'pitchDeg']].values
-
-    # # 应用磁偏角
-    # euler[:, 0] += MAG_DECLINATION
-
-    # 这个很难解释... 总之安卓给出的getOrientation方法坐标系不是相对于ENU的, 而是 -E -N -U 所以旋转需要反向一下
-    # euler = -euler
-
-    acc = imu_df[['UncalAccelXMps2', 'UncalAccelYMps2', 'UncalAccelZMps2']].values
-    gys = imu_df[['UncalGyroXRadPerSec', 'UncalGyroYRadPerSec', 'UncalGyroZRadPerSec']].values
-
-    rot = R.from_euler('zxy', euler, degrees=True)
-    acc_enu = rot.apply(acc)
-    gys_enu = rot.apply(gys)
-
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-    axes[0].plot(acc[:, 0], label='X')
-    axes[0].plot(acc[:, 1], label='Y')
-    axes[0].plot(acc[:, 2], label='Z')
-    axes[0].legend()
-    axes[0].set_xlabel("Time (ms)")
-    axes[0].set_ylabel("Acc (m/s2)")
-
-    axes[1].plot(acc_enu[:, 0], label='E')
-    axes[1].plot(acc_enu[:, 1], label='N')
-    axes[1].plot(acc_enu[:, 2], label='U')
-    axes[1].legend()
-    axes[1].set_xlabel("Time (ms)")
-    axes[1].set_ylabel("Acc (m/s2)")
-
-
-    fig.tight_layout()
-    plt.show()
-    plt.close(fig)
-'''

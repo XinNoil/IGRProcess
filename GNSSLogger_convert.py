@@ -1,4 +1,11 @@
 # -*- coding: UTF-8 -*-
+"""
+Usage:
+  AllSensorLogger_convert.py <data_path> [options]
+
+Options:
+  -o <overwrite>, --overwrite <overwrite>  室内 [default: 1]
+"""
 '''
     将 GNSSLogger 和 RTKLite 采集得到的 日志文件中的各种数据转换为 csv 文件
 '''
@@ -9,10 +16,9 @@ from datetime import timezone
 import pynmea2
 from mtools import read_file
 from tools.tools import get_info
+from docopt import docopt
 
-IGR_DIR = 'IGR230312'
 DATA_DIR = r"processed"
-ALL_CONVERT_OVERRIDE_FLAG = True
 
 HEADER_DEF = {
     "Raw": "Raw,utcTimeMillis,TimeNanos,LeapSecond,TimeUncertaintyNanos,FullBiasNanos,BiasNanos,BiasUncertaintyNanos,DriftNanosPerSecond,DriftUncertaintyNanosPerSecond,HardwareClockDiscontinuityCount,Svid,TimeOffsetNanos,State,ReceivedSvTimeNanos,ReceivedSvTimeUncertaintyNanos,Cn0DbHz,PseudorangeRateMetersPerSecond,PseudorangeRateUncertaintyMetersPerSecond,AccumulatedDeltaRangeState,AccumulatedDeltaRangeMeters,AccumulatedDeltaRangeUncertaintyMeters,CarrierFrequencyHz,CarrierCycles,CarrierPhase,CarrierPhaseUncertainty,MultipathIndicator,SnrInDb,ConstellationType,AgcDb,BasebandCn0DbHz,FullInterSignalBiasNanos,FullInterSignalBiasUncertaintyNanos,SatelliteInterSignalBiasNanos,SatelliteInterSignalBiasUncertaintyNanos,CodeType,ChipsetElapsedRealtimeNanos",
@@ -163,5 +169,8 @@ def single_convert(phone_dir, trip_dir):
 
 if __name__ == "__main__":
     # single_convert("Mate50", "03_07_14_49")
-    os.chdir(IGR_DIR)
+    arguments = docopt(__doc__)
+    IGR_DIR = arguments.data_path
+    ALL_CONVERT_OVERRIDE_FLAG = arguments.overwrite
+    os.chdir(os.path.join('IGRData', IGR_DIR))
     all_convert()

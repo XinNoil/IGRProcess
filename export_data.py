@@ -1,9 +1,19 @@
+"""
+Usage:
+  export_data.py <data_path>... [options]
+
+Options:
+  -e <export_type>, --export_type <export_type>       note
+
+"""
+
 import os
 from mtools import read_file, write_file, list_remove
 from mtools import monkey as mk
 import pandas as pd
 import ipdb as pdb
 import numpy as np
+from docopt import docopt
 
 def read_h5(file_path):
     store = pd.HDFStore(file_path, mode='r')
@@ -20,7 +30,7 @@ def read_h5(file_path):
 def scan_all_h5(IGR_dirs=None):
     if IGR_dirs is None:
         IGR_dirs = IGR_DIRS
-    for IGR_DIR in IGR_DIRS:
+    for IGR_DIR in IGR_dirs:
         phone_dirs = sorted(read_file(f"{IGR_DIR}/devices.txt"))
         for phone_dir in phone_dirs:
             if not os.path.isdir(f"{IGR_DIR}/{DATA_DIR}/{phone_dir}"): 
@@ -48,7 +58,7 @@ def file_path_loop(func, file_paths):
 def stat_phone_err():
     file_paths = scan_all_h5()
     df = file_path_loop(_stat_phone_err, file_paths)
-    df.to_csv('Output/stat_df.csv', index=False)
+    df.to_csv('../Output/stat_df.csv', index=False)
 
 def _stat_phone_err(data, file_path):
     _, _, phone_dir, trip_dir, _ = str.split(file_path, '/')
@@ -69,7 +79,7 @@ def _stat_phone_err(data, file_path):
 def stat_phone_pos():
     file_paths = scan_all_h5()
     df = file_path_loop(_stat_phone_pos, file_paths)
-    df.to_csv('Output/stat_pos_df.csv', index=False)
+    df.to_csv('../Output/stat_pos_df.csv', index=False)
 
 def _stat_phone_pos(data, file_path):
     _, _, phone_dir, trip_dir, _ = str.split(file_path, '/')
@@ -88,9 +98,10 @@ def _stat_phone_pos(data, file_path):
 def export_imu_data():
     for IGR_DIR in IGR_DIRS:
         file_paths = scan_all_h5([IGR_DIR])
+        print(file_paths)
         df = file_path_loop(_export_imu_data, file_paths)
         df = df.loc[:, ~df.columns.duplicated()]
-        df.to_hdf(f'Output/all_imu_data_{IGR_DIR}.h5', 'all_imu', mode='w')
+        df.to_hdf(f'../Output/all_imu_data_{IGR_DIR}.h5', 'all_imu', mode='w')
 
 def _export_imu_data(data, file_path):
     _, _, phone_dir, trip_dir, _ = str.split(file_path, '/')
@@ -101,21 +112,27 @@ def _export_imu_data(data, file_path):
     df['trip'] = trip_dir
     return df
 
-# IGR_DIRS = ['IGR230312'] # 'IGR', 'IGR230307', 'IGR230312'
-IGR_DIRS = ['IGR', 'IGR230307', 'IGR230312']
-DATA_DIR = "processed"
-exclude_paths = ['03_07_15_51', '03_12_15_38']
-export_type = 'phone_fix'
-OVER_WRITE = True
-
 export_func_dict = {
     'phone_err': stat_phone_err,
     'phone_fix': stat_phone_pos,
     'imu_data': export_imu_data
 }
 
+# IGR_DIRS = ['IGR_cjy'] # 'IGR', 'IGR230307', 'IGR230312'
+# IGR_DIRS = ['IGR_cjy', 'IGR230307', 'IGR230312', 'IGR230415']
+# IGR_DIRS = ['IGR230415']
+
+DATA_DIR = "processed"
+exclude_paths = ['03_07_15_51', '03_12_15_38']
+OVER_WRITE = True
+
 def main():
     export_func_dict[export_type]()
-    
+   
 if __name__ == "__main__":
+    arguments = docopt(__doc__)
+    print(arguments)
+    IGR_DIRS = arguments.data_path
+    export_type = arguments.export_type
+    os.chdir('IGRData')
     main()

@@ -4,6 +4,12 @@ import sys
 import os.path as osp
 from os.path import join as join_path
 
+def load_paths(filename):
+    lines = read_file(filename)
+    lines = list(filter(lambda x: not x.startswith('#'), lines))
+    paths = [line.split(',') for line in lines]
+    return paths
+
 def get_info(folder):
     infos = read_file(osp.join(folder, 'info.yaml'))
     info = {}

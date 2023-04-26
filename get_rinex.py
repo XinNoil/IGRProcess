@@ -1,8 +1,15 @@
 
+"""
+Usage:
+  get_rinex.py <data_path> [options]
 
+Options:
+  -o <overwrite>, --overwrite <overwrite>  室内 [default: 1]
 """
-转化rinex脚本 (H:\workspace-oml\RTK\data\OurGNSSLoggerDataset\RTK_GNSSLogger)
-"""
+
+#
+# 转化rinex脚本 (H:\workspace-oml\RTK\data\OurGNSSLoggerDataset\RTK_GNSSLogger)
+#
 
 # if 'rtklib-py/src' not in sys.path:
 #     sys.path.append('rtklib-py/src')
@@ -12,6 +19,7 @@
 import os
 import re
 import shutil
+from docopt import docopt
 import os.path as osp
 from multiprocessing import Pool
 import tools.gnsslogger_to_rnx as rnx
@@ -26,8 +34,6 @@ OVERWRITE_RINEX = True  # overwrite existing rinex filex
 DEBUG = True            # True 使用串行执行方式
 
 # specify location of input folder and files
-data_path = 'IGR230312'
-datadir = os.path.join(data_path, 'processed')
 
 # input structure for rinex conversion
 class args:
@@ -56,8 +62,9 @@ def convert_rnx(rawFile, rovFile, slipMask):
     argsIn.slip_mask = slipMask
     rnx.convert2rnx(argsIn)
 
-def main():
-    datasets = read_file(os.path.join(data_path, 'devices.txt'))
+def main(data_path):
+    datadir = os.path.join('IGRData', data_path, 'processed')
+    datasets = read_file(os.path.join('IGRData', data_path, 'devices.txt'))
     rinexIn = []
     for phone in datasets:
         times = os.listdir(os.path.realpath(os.path.join(datadir,phone)))
@@ -99,7 +106,11 @@ def main():
                     print(f'convert failed, use {rnx_file} directly')
 
 if __name__ == '__main__':
+    arguments = docopt(__doc__)
+    data_path = arguments.data_path
+    overwrite = int(arguments.overwrite)
+
     t0 = time()
-    main()
+    main(data_path)
     print('Runtime=%.1f' % (time() - t0))
 
