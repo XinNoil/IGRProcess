@@ -14,6 +14,7 @@ import pandas as pd
 import ipdb as pdb
 import numpy as np
 from docopt import docopt
+from tools.tools import get_info
 
 def read_h5(file_path):
     store = pd.HDFStore(file_path, mode='r')
@@ -58,7 +59,7 @@ def file_path_loop(func, file_paths):
 def stat_phone_err():
     file_paths = scan_all_h5()
     df = file_path_loop(_stat_phone_err, file_paths)
-    df.to_csv('../Output/stat_df.csv', index=False)
+    df.to_csv(f'{save_path}/stat_df.csv', index=False)
 
 def _stat_phone_err(data, file_path):
     _, _, phone_dir, trip_dir, _ = str.split(file_path, '/')
@@ -74,12 +75,15 @@ def _stat_phone_err(data, file_path):
     df = pd.DataFrame(df_data, columns=['err_x', 'err_y', 'err_h', 'gt_x', 'gt_y'])
     df['phone'] = phone_dir
     df['trip'] = trip_dir
+    info = get_info(file_path.replace('data.h5', 'supplementary'))
+    df['route'] = info['route']
+    df['people'] = info['people']
     return df
 
 def stat_phone_pos():
     file_paths = scan_all_h5()
     df = file_path_loop(_stat_phone_pos, file_paths)
-    df.to_csv('../Output/stat_pos_df.csv', index=False)
+    df.to_csv(f'{save_path}/stat_pos_df.csv', index=False)
 
 def _stat_phone_pos(data, file_path):
     _, _, phone_dir, trip_dir, _ = str.split(file_path, '/')
@@ -101,7 +105,7 @@ def export_imu_data():
         print(file_paths)
         df = file_path_loop(_export_imu_data, file_paths)
         df = df.loc[:, ~df.columns.duplicated()]
-        df.to_hdf(f'../Output/all_imu_data_{IGR_DIR}.h5', 'all_imu', mode='w')
+        df.to_hdf(f'{save_path}/all_imu_data_{IGR_DIR}.h5', 'all_imu', mode='w')
 
 def _export_imu_data(data, file_path):
     _, _, phone_dir, trip_dir, _ = str.split(file_path, '/')
@@ -134,5 +138,7 @@ if __name__ == "__main__":
     print(arguments)
     IGR_DIRS = arguments.data_path
     export_type = arguments.export_type
+    save_path = '_'.join(IGR_DIRS)
     os.chdir('IGRData')
+    os.makedirs(save_path, exist_ok=True)
     main()

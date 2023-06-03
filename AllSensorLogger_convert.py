@@ -20,6 +20,8 @@ HEADER_DEF = {
     "UncalAccel": "UncalAccel,elapsedRealtimeNanos,utcTimeMillis,UncalAccelXMps2,UncalAccelYMps2,UncalAccelZMps2,BiasXMps2,BiasYMps2,BiasZMps2",
     "UncalGyro": "UncalGyro,elapsedRealtimeNanos,utcTimeMillis,UncalGyroXRadPerSec,UncalGyroYRadPerSec,UncalGyroZRadPerSec,DriftXRadPerSec,DriftYRadPerSec,DriftZRadPerSec",
     "GameRot": "GameRot,elapsedRealtimeNanos,utcTimeMillis,quaternionX,quaternionY,quaternionZ,quaternionW",
+    "Rot": "Rot,elapsedRealtimeNanos,utcTimeMillis,quaternionX,quaternionY,quaternionZ,quaternionW",
+    "Mark":"Loc,elapsedRealtimeNanos,utcTimeMillis,LID", 
 }
 
 DATA_DIR = r"processed"
@@ -35,10 +37,18 @@ def convert_AllSenosr_log(trip_dir, txt_filename):
     uncal_gyro_f.write(HEADER_DEF["UncalGyro"])
     uncal_gyro_f.write("\n")
 
-    orientation_deg_f = open(f"{trip_dir}/GameRot.csv", "w")
-    orientation_deg_f.write(HEADER_DEF["GameRot"])
+    game_orientation_deg_f = open(f"{trip_dir}/GameRot.csv", "w")
+    game_orientation_deg_f.write(HEADER_DEF["GameRot"])
+    game_orientation_deg_f.write("\n")
+
+    orientation_deg_f = open(f"{trip_dir}/Rot.csv", "w")
+    orientation_deg_f.write(HEADER_DEF["Rot"])
     orientation_deg_f.write("\n")
 
+    mark_f = open(f"{trip_dir}/Mark.csv", "w")
+    mark_f.write(HEADER_DEF["Mark"])
+    mark_f.write("\n")
+    pdb.set_trace()
     with open(os.path.join(trip_dir, "supplementary", txt_filename), 'r', encoding='utf-8') as f:
         while (line := f.readline()):
             if line.startswith("#"):
@@ -48,11 +58,17 @@ def convert_AllSenosr_log(trip_dir, txt_filename):
             elif line.startswith("UGys"):
                 uncal_gyro_f.write(line)
             elif line.startswith("GameRot"):
+                game_orientation_deg_f.write(line)
+            elif line.startswith("Rot"):
                 orientation_deg_f.write(line)
+            elif line.startswith("Loc"):
+                mark_f.write(line)
 
     uncal_accel_f.close()
     uncal_gyro_f.close()
+    game_orientation_deg_f.close()
     orientation_deg_f.close()
+    mark_f.close()
 
 
 def convert_one_dir(trip_dir):

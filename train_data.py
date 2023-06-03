@@ -7,7 +7,7 @@ Options:
   -o <overwrite>, --overwrite <overwrite>       overwrite   [default: 1]
   -i <indoor>, --indoor <indoor>                indoor      [default: 0]
   -t <preparetime>, --preparetime <preparetime> prepare     [default: 18]
-
+  -d <debuglevel>, --debuglevel <debuglevel>    debuglevel  [default: 0]
 """
 
 #根据提取出的各种csv整理形成数据集
@@ -71,7 +71,8 @@ def load_GNSSLogger_csv(csv_path:str) -> pd.DataFrame:
         df.rename(columns={"UnixTimeMillis": "utcTimeMillis"}, inplace=True)
     if 'elapsedRealtimeNanos' in df.columns.to_list():    
         df = df.set_index('elapsedRealtimeNanos', drop=False)
-    assert(all(df.index.duplicated())==False)
+    if len(df):
+        assert(all(df.index.duplicated())==False)
     return df
 
 '''
@@ -157,22 +158,25 @@ def align_utc_ela(df, fix_df):
     df['utcTimeMillis'] = fix_df['utcTimeMillis'].reindex(desired_ela_index).interpolate('index', limit_area='inside')
     df.set_index('utcTimeMillis', drop=False, inplace=True)
     df.dropna(subset=['utcTimeMillis'], inplace=True)
-    df['utcTimeMillis'] = np.round(df['utcTimeMillis']).astype('int64')
+    df['utcTimeMillis'] = np.round(df['utcTimeMillis'].values).astype('int64')
     return df
 
 def reindex_and_interpolate(df:pd.DataFrame, desired_index:pd.Index):
     # 标记数据是来自传感器还是插值
     df.loc[:, 'Source'] = 'Sensor'
     # 将两种index合并起来, 这个合并能够保证包含两个index的所有项并且不重复
-    union_index = df.index.union(desired_index).dropna()
-    
     all_index = df.index.values
     m = np.zeros_like(all_index, dtype=bool)
     m[np.unique(all_index, return_index=True)[1]] = True
     dup_index = all_index[~m]
     if len(dup_index):
         print(dup_index)
-        pdb.set_trace()
+        if DEBUGLEVEL<1:
+            pdb.set_trace()
+        df.drop_duplicates(['utcTimeMillis'], inplace=True)
+
+    union_index = df.index.union(desired_index).dropna()
+    
     # 首先将df上采样到union_index, 然后对空缺的地方插值
     target_df = df.reindex(union_index).interpolate('index')
     # 然后下采样到需要的index
@@ -194,6 +198,7 @@ def get_and_save_dataset_indoor(phone_dir, trip_dir, PREPARE_TIME):
     acc_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/UncalAccel.csv")
     gys_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/UncalGyro.csv")
     rot_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/GameRot.csv")
+    mark_df = load_GNSSLogger_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/Mark.csv")
 
     # 对 IMU 数据施加校准
     acc_df = apply_IMU_bias(acc_df, "Acc")
@@ -204,9 +209,17 @@ def get_and_save_dataset_indoor(phone_dir, trip_dir, PREPARE_TIME):
     # rot_df.set_index('utcTimeMillis', drop=False, inplace=True)
 
     rot_df.drop_duplicates(subset=['utcTimeMillis'], keep='last', inplace=True)
-    acc_df = align_utc_ela(acc_df, rot_df)
-    gys_df = align_utc_ela(gys_df, rot_df)
-    rot_df = align_utc_ela(rot_df, rot_df)
+
+    all_time_df = pd.concat([rot_df[['elapsedRealtimeNanos','utcTimeMillis']], acc_df[['elapsedRealtimeNanos','utcTimeMillis']], gys_df[['elapsedRealtimeNanos','utcTimeMillis']]])
+    all_time_df.reset_index(names=['index'], inplace=True)
+    all_time_df.sort_values('elapsedRealtimeNanos', inplace=True)
+    all_time_df.set_index('index', inplace=True)
+
+    acc_df = align_utc_ela(acc_df, all_time_df)
+    gys_df = align_utc_ela(gys_df, all_time_df)
+    rot_df = align_utc_ela(rot_df, all_time_df)
+    if len(mark_df):
+        mark_df = align_utc_ela(mark_df, all_time_df)
 
     # 选择这几个传感器 第一个时间戳最晚的那个 和 最后一个时间戳最早的那个 作为整体的起始和结束时间戳, 并对齐到 10ms
     time_start = max([i.index.min() for i in [acc_df, gys_df, rot_df]])
@@ -242,8 +255,8 @@ def get_and_save_dataset_indoor(phone_dir, trip_dir, PREPARE_TIME):
     acc_df = acc_df.assign(AccE=acc_enu[:,0], AccN=acc_enu[:,1], AccU=acc_enu[:,2])
     gys_df = gys_df.assign(GysE=gys_enu[:,0], GysN=gys_enu[:,1], GysU=gys_enu[:,2])
 
-    dfs = (acc_df, gys_df, rot_df)
-    dfs_names = ("acc", "gys", "rot")
+    dfs = (acc_df, gys_df, rot_df, mark_df)
+    dfs_names = ("acc", "gys", "rot", "mark")
     save_data_h5(phone_dir, trip_dir, dfs, dfs_names)
     return (time_end-time_start)/1000
 
@@ -258,6 +271,7 @@ def get_and_save_dataset(phone_dir, trip_dir, PREPARE_TIME):
     dop_ecef_df = load_Doppler_csv(f"{DATA_DIR}/{phone_dir}/{trip_dir}/supplementary/doppler.csv", fix_df)
 
     fix_df = fix_df.query(f"Provider == 'GPS'").drop("Provider", axis=1)
+    gngga_df.drop_duplicates(['utcTimeMillis'], inplace=True)
     
     # 需要对 rollDeg 进行取反, 这样才是真正的旋转矩阵
     if phone_dir not in not_neg_rollDeg_devices:
@@ -293,7 +307,6 @@ def get_and_save_dataset(phone_dir, trip_dir, PREPARE_TIME):
     dop_enu_df = get_dop_enu_df(dop_ecef_df)
     
     # 生成同步对齐时间戳
-    # pdb.set_trace()
     acc_df = align_utc_ela(acc_df, fix_df)
     gys_df = align_utc_ela(gys_df, fix_df)
     mag_df = align_utc_ela(mag_df, fix_df)
@@ -314,7 +327,8 @@ def get_and_save_dataset(phone_dir, trip_dir, PREPARE_TIME):
     if time_end-time_start < 100000:
         print([i.index.min() for i in [acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df]]) # dop_enu_df
         print([i.index.max() for i in [acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df]]) # dop_enu_df
-        pdb.set_trace()
+        if DEBUGLEVEL<1:
+            pdb.set_trace()
         if time_end-time_start < 0:
             print('time_end-time_start < 0')
             return
@@ -357,7 +371,10 @@ def save_data_h5(phone_dir, trip_dir, dfs, dfs_names):
 
     store = pd.HDFStore(f"{DATA_DIR}/{phone_dir}/{trip_dir}/data.h5")
     for df, df_name in zip(dfs, dfs_names):
-        df.reset_index(inplace=True)
+        if df.index.name not in df.columns.tolist():
+            df.reset_index(inplace=True)
+        else:
+            df.reset_index(inplace=True, names=['index'])
         store.put(df_name, df, index=False)
     store.close()
 
@@ -390,6 +407,7 @@ if __name__ == "__main__":
     OVERRIDE_FLAG = int(arguments.overwrite)
     PREPARE_TIME = int(arguments.preparetime)
     INDOOR = int(arguments.indoor)
+    DEBUGLEVEL = int(arguments.debuglevel)
     os.chdir(os.path.join('IGRData', IGR_DIR))
     main()
 

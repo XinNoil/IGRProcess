@@ -25,6 +25,7 @@ from multiprocessing import Pool
 import tools.gnsslogger_to_rnx as rnx
 from time import time
 from tools.tools import read_file, get_info
+import ipdb as pdb
 
 # set run parameters
 maxepoch = None # max number of epochs, used for debug, None = no limit
@@ -74,7 +75,10 @@ def main(data_path):
             folder = osp.realpath(osp.join(datadir, phone, time))
             # 获取raw data的路径
             rawfiles = os.listdir(osp.join(folder, 'supplementary'))
-            rawFile = list(filter(lambda _: re.search(r'gnss_log_[0-9_]*.txt', _) is not None, rawfiles))[0]
+            try:
+                rawFile = list(filter(lambda _: re.search(r'gnss_log_[0-9_]*.txt', _) is not None, rawfiles))[0]
+            except:
+                pdb.set_trace()
             rawFile = osp.join(folder, 'supplementary', rawFile)
             rovFile = osp.join(folder, 'supplementary', 'gnss_log.obs')
 

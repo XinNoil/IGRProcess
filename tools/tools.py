@@ -108,3 +108,63 @@ def set_args_config(parser, path=join_path('configs', 'train_configs')):
     _set_args_config(args, parser, path)
     # print('>> %s\n' % str(args))
     return args
+
+HEADER_DEF = {
+    "UncalAccel": "UncalAccel,elapsedRealtimeNanos,utcTimeMillis,UncalAccelXMps2,UncalAccelYMps2,UncalAccelZMps2,BiasXMps2,BiasYMps2,BiasZMps2",
+    "UncalGyro": "UncalGyro,elapsedRealtimeNanos,utcTimeMillis,UncalGyroXRadPerSec,UncalGyroYRadPerSec,UncalGyroZRadPerSec,DriftXRadPerSec,DriftYRadPerSec,DriftZRadPerSec",
+    "GameRot": "GameRot,elapsedRealtimeNanos,utcTimeMillis,quaternionX,quaternionY,quaternionZ,quaternionW",
+    "Rot": "Rot,elapsedRealtimeNanos,utcTimeMillis,quaternionX,quaternionY,quaternionZ,quaternionW",
+    "Mark":"Loc,elapsedRealtimeNanos,utcTimeMillis,LID", 
+}
+
+def convert_AllSenosr_log(txt_file, output_path, uncal_accel=True, uncal_gyro=True, game_orientation=True, orientation=True, mark=True):
+    if uncal_accel:
+        uncal_accel_f = open(f"{output_path}/UncalAccel.csv", "w")
+        uncal_accel_f.write(HEADER_DEF["UncalAccel"])
+        uncal_accel_f.write("\n")
+
+    if uncal_gyro:
+        uncal_gyro_f = open(f"{output_path}/UncalGyro.csv", "w")
+        uncal_gyro_f.write(HEADER_DEF["UncalGyro"])
+        uncal_gyro_f.write("\n")
+
+    if game_orientation:
+        game_orientation_deg_f = open(f"{output_path}/GameRot.csv", "w")
+        game_orientation_deg_f.write(HEADER_DEF["GameRot"])
+        game_orientation_deg_f.write("\n")
+
+    if orientation:
+        orientation_deg_f = open(f"{output_path}/Rot.csv", "w")
+        orientation_deg_f.write(HEADER_DEF["Rot"])
+        orientation_deg_f.write("\n")
+
+    if mark:
+        mark_f = open(f"{output_path}/Mark.csv", "w")
+        mark_f.write(HEADER_DEF["Mark"])
+        mark_f.write("\n")
+
+    with open(txt_file, 'r', encoding='utf-8') as f:
+        while (line := f.readline()):
+            if line.startswith("#"):
+                continue
+            elif line.startswith("UAcc") and uncal_accel:
+                uncal_accel_f.write(line)
+            elif line.startswith("UGys") and uncal_gyro:
+                uncal_gyro_f.write(line)
+            elif line.startswith("GameRot") and game_orientation:
+                game_orientation_deg_f.write(line)
+            elif line.startswith("Rot") and orientation:
+                orientation_deg_f.write(line)
+            elif line.startswith("Loc") and mark:
+                mark_f.write(line)
+
+    if uncal_accel:
+        uncal_accel_f.close()
+    if uncal_gyro:
+        uncal_gyro_f.close()
+    if game_orientation:
+        game_orientation_deg_f.close()
+    if orientation:
+        orientation_deg_f.close()
+    if mark:
+        mark_f.close()
