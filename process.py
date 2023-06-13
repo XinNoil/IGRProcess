@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     data_path = args.data_path
     os.chdir(osp.join('IGRData', data_path))
-    infos = load_paths('info_list.txt')
+    infos = load_paths('info_list.csv')
     devices = read_file('devices.txt')
     devices = list(filter(lambda x: not x.startswith('#'), devices))
     print_each(infos)

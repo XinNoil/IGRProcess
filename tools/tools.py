@@ -427,7 +427,7 @@ def moving_average_filter(data, window_size):
 
 def magnetic_calibration(mag, N=100):
     cali_mag = mag[:, :3]
-    uncali_mag = mag[:, :3]
+    uncali_mag = mag[:, 3:]
     freq = max(int(mag.shape[0]//N), 1)
     samp_mag = uncali_mag[::freq, :]
 
@@ -441,7 +441,7 @@ def magnetic_calibration(mag, N=100):
     mag_cali = uncali_mag + np.concatenate((dx, dy, dz))
     mag_cali_norm_mean = np.mean(np.linalg.norm(mag_cali, axis=1))
     cali_mag_norm_mean = np.mean(np.linalg.norm(cali_mag, axis=1))
-    if mag_cali_norm_mean<30 and cali_mag_norm_mean<70:
+    if mag_cali_norm_mean<20 and cali_mag_norm_mean<70:
         print(f'norm of mag_cali ({mag_cali_norm_mean}) is too small, use cali_mag ({cali_mag_norm_mean}) instead')
         # pdb.set_trace()
         mag_cali = cali_mag

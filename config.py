@@ -92,8 +92,8 @@ for device in devices:
     traces = [','.join((args.data_dir, device, trace, gnss_file, rnx_file, sensor_file, rtkfile, _area, _shape, _type, _people)) for trace, gnss_file, rnx_file, sensor_file, rtkfile, _area, _shape, _type, _people in zip(trace_names, gnss_files, rnx_files, sensor_files, rtkfiles, _areas, _shapes, _types, _peoples)]
     
     print_each(traces)
-    write_file(get_path_o(origin_path, device, 'info_list.txt'), traces)
+    write_file(get_path_o(origin_path, device, 'info_list.csv'), traces)
     for trace in traces:
         if trace not in all_trace:
             all_trace.append(trace)
-write_file(osp.join('IGRData', args.data_dir, 'info_list.txt'), all_trace)
+write_file(osp.join('IGRData', args.data_dir, 'info_list.csv'), all_trace)

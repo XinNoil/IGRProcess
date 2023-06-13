@@ -1,26 +1,26 @@
-# export path=IGR230307
-# export subtype=none
-# export indoor=0
-# export allsensor=0
-# export orisource=0
+export path=IGR230307
+export subtype=none
+export indoor=0
+export allsensor=0
+export orisource=0
 
 # export path=IGR230312
 # export subtype=none
 # export indoor=0
 # export allsensor=0
-# export orisource=2
-
-# export path=IGR_cjy
-# export subtype=none
-# export indoor=0
-# export allsensor=0
 # export orisource=0
 
-# export path=IGR230503
-# export subtype=people
-# export indoor=0
-# export allsensor=0
-# export orisource=0
+export path=IGR_cjy
+export subtype=none
+export indoor=0
+export allsensor=0
+export orisource=0
+
+export path=IGR230503
+export subtype=people
+export indoor=0
+export allsensor=0
+export orisource=0
 
 export path=IGR230510
 export subtype=none

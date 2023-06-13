@@ -83,4 +83,4 @@ for device in devices:
         latlon = gngga_df[['LatitudeDegrees', 'LongitudeDegrees']].values
         if not osp.exists(osp.join(trace_path, rtkfile).replace('txt', 'png')):
             plot_traj(csv_name, latlon)
-write_file(osp.join(data_path, 'info_list.txt'), all_trace)
+write_file(osp.join(data_path, 'info_list.csv'), all_trace)
