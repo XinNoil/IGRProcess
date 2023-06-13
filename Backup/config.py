@@ -6,7 +6,7 @@ import ipdb as pdb
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--data_dir', type=str)
-parser.add_argument('-r', '--routes',   type=str, default='')
+parser.add_argument('-a', '--area',   type=str, default='')
 parser.add_argument('-s', '--shapes',   type=str, default='') # , choices=['Straight', 'Circle', 'All']
 parser.add_argument('-t', '--types',    type=str, default='') # , choices=['SemiOpen', 'Open', 'Indoor']
 parser.add_argument('-p', '--peoples',  type=str, default='')
@@ -153,9 +153,9 @@ for device in devices:
             all_paths.append(path)
 write_file(osp.join(args.data_dir, 'path_list.txt'), all_paths)
 
-# python tools/config.py -d IGRData/IGR230425 -r Around_55 -s Straight,Straight,Circle,All -t SemiOpen
-# python tools/config.py -d IGRData/IGR230426 -r Tai_Lei -s Straight,Straight,Circle,All -t Open
-# python tools/config.py -d IGRData/IGR_indoor_test -r 55 -s Straight -t Indoor -i True
-# python tools/config.py -d IGRData/IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
-# python tools/config.py -d IGRData/IGR230503 -r Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open -st people
-# python tools/config.py -d IGRData/IGR230510 -r Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open
+# python tools/config.py -d IGR230425 -a Around_55 -s Straight,Straight,Circle,All -t SemiOpen
+# python tools/config.py -d IGR230426 -a Tai_Lei -s Straight,Straight,Circle,All -t Open
+# python tools/config.py -d IGR_indoor_test -a 55 -s Straight -t Indoor -i True
+# python tools/config.py -d IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
+# python tools/config.py -d IGR230503 -a Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open -st people
+# python tools/config.py -d IGR230510 -a Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open

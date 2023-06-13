@@ -1,6 +1,9 @@
 
 ## Code Overview
 
+### Info List
+'Datadir','Device','Trace','GNSSFile','RnxFile','SensorFile','RTKLite','Area','Shape','Type','People'
+
 ### Directory Structure
 ```
 IGRProcess

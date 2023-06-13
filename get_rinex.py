@@ -1,12 +1,3 @@
-
-"""
-Usage:
-  get_rinex.py <data_path> [options]
-
-Options:
-  -o <overwrite>, --overwrite <overwrite>  室内 [default: 1]
-"""
-
 #
 # 转化rinex脚本 (H:\workspace-oml\RTK\data\OurGNSSLoggerDataset\RTK_GNSSLogger)
 #
@@ -16,28 +7,27 @@ Options:
 # if 'android_rinex/src' not in sys.path:
 #     sys.path.append('android_rinex/src')
 
-import os
+import os, argparse
 import re
 import shutil
-from docopt import docopt
 import os.path as osp
 from multiprocessing import Pool
 import tools.gnsslogger_to_rnx as rnx
 from time import time
 from tools.tools import read_file, get_info
+from mtools import str2bool
 import ipdb as pdb
 
 # set run parameters
 maxepoch = None # max number of epochs, used for debug, None = no limit
 
 # Set solution choices
-OVERWRITE_RINEX = True  # overwrite existing rinex filex
 DEBUG = True            # True 使用串行执行方式
 
 # specify location of input folder and files
 
 # input structure for rinex conversion
-class args:
+class Args:
     def __init__(self):
         # Input parameters for conversion to rinex
         self.slip_mask = 0 # overwritten below
@@ -57,7 +47,7 @@ class args:
 
 # function to convert single rinex file
 def convert_rnx(rawFile, rovFile, slipMask):
-    argsIn = args()
+    argsIn = Args()
     argsIn.input_log = rawFile
     argsIn.output = os.path.basename(rovFile) # path: /a/b/c/ return c
     argsIn.slip_mask = slipMask
@@ -65,9 +55,10 @@ def convert_rnx(rawFile, rovFile, slipMask):
 
 def main(data_path):
     datadir = os.path.join('IGRData', data_path, 'processed')
-    datasets = read_file(os.path.join('IGRData', data_path, 'devices.txt'))
+    devices = read_file(os.path.join('IGRData', data_path, 'devices.txt'))
+    devices = list(filter(lambda x: not x.startswith('#'), devices))
     rinexIn = []
-    for phone in datasets:
+    for phone in devices:
         times = os.listdir(os.path.realpath(os.path.join(datadir,phone)))
         times.sort()
         for time in times:
@@ -105,14 +96,26 @@ def main(data_path):
                     convert_rnx(*input)
                 except:
                     info = get_info(osp.dirname(input[0]))
-                    rnx_file = info['23o']
+                    rnx_file = info['rnx_file']
                     shutil.copyfile(osp.join(osp.dirname(input[0]), rnx_file), input[1])
                     print(f'convert failed, use {rnx_file} directly')
 
+
+"""
+Usage:
+  get_rinex.py <data_path> [options]
+
+Options:
+  -o <overwrite>, --overwrite <overwrite>  室内 [default: 1]
+"""
+
 if __name__ == '__main__':
-    arguments = docopt(__doc__)
-    data_path = arguments.data_path
-    overwrite = int(arguments.overwrite)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--data_path', type=str)
+    parser.add_argument('-o', '--overwrite', type=str2bool, default=False)
+    args = parser.parse_args()
+    data_path = args.data_path
+    OVERWRITE_RINEX = args.overwrite
 
     t0 = time()
     main(data_path)

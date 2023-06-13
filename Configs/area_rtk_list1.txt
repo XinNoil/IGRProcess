@@ -1,0 +1,12 @@
+IGRData/IGR230510/origin/rtklite
+20230506184241gngga.txt,Around_55
+20230506185410gngga.txt,Tai_Lei
+20230506190603gngga.txt,Around_Lib
+20230506192027gngga.txt,Between_Building
+20230506193424gngga.txt,Around_Playground
+20230506122611gngga.txt,Around_55
+20230506123649gngga.txt,Tai_Lei
+20230506130933gngga.txt,Around_Lib
+20230506132004gngga.txt,Between_Building
+20230506133414gngga.txt,Around_Playground
+20230506134523gngga.txt,Playground
