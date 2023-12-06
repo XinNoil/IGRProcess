@@ -1,32 +1,20 @@
-export path=IGR230307
 export subtype=none
 export indoor=0
 export allsensor=0
 export orisource=0
 
+# export path=IGR_cjy
+# export path=IGR230307
 # export path=IGR230312
-# export subtype=none
-# export indoor=0
-# export allsensor=0
-# export orisource=0
-
-export path=IGR_cjy
-export subtype=none
-export indoor=0
-export allsensor=0
-export orisource=0
-
-export path=IGR230503
-export subtype=people
-export indoor=0
-export allsensor=0
-export orisource=0
-
+# export path=IGR230415
+# export path=IGR230419
+# export path=IGR230425
+# export path=IGR230426
+# export path=IGR230503
+# export subtype=people
 export path=IGR230510
-export subtype=none
-export indoor=0
-export allsensor=1
-export orisource=0
+# export path=IGR230626
+# todo: 0415, 0419, 0425, 0426
 
 export debuglevel=1
 export overwrite=1
@@ -51,9 +39,9 @@ if [ $indoor = 0 ]; then
     # echo 'python export_data.py -d' $path '-e phone_fix'
     # echo 'python export_data.py -d' $path '-e imu_data'
 
-    # python process.py -d $path -st $subtype
-    # python get_rinex.py -d $path
-    # python GNSSLogger_convert.py -d $path
+    python process.py -d $path -st $subtype
+    python get_rinex.py -d $path
+    python GNSSLogger_convert.py -d $path
     # if [ $allsensor = 1 ]; then
     #     python AllSensorLogger_convert.py -d $path -o $overwrite -io $imu_overwrite
     # fi

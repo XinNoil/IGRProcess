@@ -31,9 +31,10 @@ def read_h5(file_path):
 def scan_all_h5(IGR_dirs=None):
     if IGR_dirs is None:
         IGR_dirs = IGR_DIRS
+    phone_trips_dict = {}
     for IGR_DIR in IGR_dirs:
         phone_dirs = sorted(read_file(f"{IGR_DIR}/devices.txt"))
-        for phone_dir in phone_dirs:
+        for i, phone_dir in enumerate(phone_dirs):
             if not os.path.isdir(f"{IGR_DIR}/{DATA_DIR}/{phone_dir}"): 
                 continue
             trip_dirs = sorted(os.listdir(f"{IGR_DIR}/{DATA_DIR}/{phone_dir}"))
@@ -43,7 +44,13 @@ def scan_all_h5(IGR_dirs=None):
                     continue
                 if os.path.exists(f"{IGR_DIR}/{DATA_DIR}/{phone_dir}/{trip_dir}/data.h5"):
                     mk.magic_append([f"{IGR_DIR}/{DATA_DIR}/{phone_dir}/{trip_dir}/data.h5"], "file_paths")
+                    if phone_dir in phone_trips_dict:
+                        phone_trips_dict[phone_dir] += 1
+                    else:
+                        phone_trips_dict[phone_dir] = 1
     [file_paths] = mk.magic_get("file_paths")
+    for phone_dir in phone_trips_dict:
+        print(phone_dir, phone_trips_dict[phone_dir])
     return file_paths
 
 def file_path_loop(func, file_paths):
@@ -71,13 +78,13 @@ def _stat_phone_err(data, file_path):
     gt_label_np = gt_pos_np[1:] - gt_pos_np[:-1]
     phone_err = phone_label_np - gt_label_np
     phone_err_norm = np.linalg.norm(phone_err, axis=1, keepdims=True)
-    df_data = np.hstack((phone_err, phone_err_norm, gt_label_np))
-    df = pd.DataFrame(df_data, columns=['err_x', 'err_y', 'err_h', 'gt_x', 'gt_y'])
+    df_data = np.hstack((phone_err*100, phone_err_norm*100, gt_label_np*100, phone_label_np*100, gngga_df.Quality[src_np].values[:-1, None], gngga_df.Quality[src_np].values[1:, None]))
+    df = pd.DataFrame(df_data, columns=['err_x', 'err_y', 'err_h', 'gt_x', 'gt_y', 'phone_x', 'phone_y', 'qual_s', 'qual_e'])
     df['phone'] = phone_dir
     df['trip'] = trip_dir
     info = get_info(file_path.replace('data.h5', 'supplementary'))
-    df['route'] = info['route']
-    df['people'] = info['people']
+    df['trace'] = info['trace']
+    # df['people'] = info['people']
     return df
 
 def stat_phone_pos():
@@ -122,23 +129,20 @@ export_func_dict = {
     'imu_data': export_imu_data
 }
 
-# IGR_DIRS = ['IGR_cjy'] # 'IGR', 'IGR230307', 'IGR230312'
+IGR_DIRS = ['IGR_cjy', 'IGR230307', 'IGR230312', 'IGR230419', 'IGR230618', 'IGR230626'] # 'IGR'
 # IGR_DIRS = ['IGR_cjy', 'IGR230307', 'IGR230312', 'IGR230415']
-# IGR_DIRS = ['IGR230415']
+# IGR_DIRS = ['IGR230307']
 
 DATA_DIR = "processed"
-exclude_paths = ['03_07_15_51', '03_12_15_38']
+exclude_paths = ['23_03_07_15_35_23', '23_03_07_16_04_05', '23_03_12_17_27_50', '23_03_12_17_37_41', '01_12_12_22', '01_12_13_04'] # , '01_12_12_22', '01_12_13_04' '03_12_15_38', 
 OVER_WRITE = True
 
 def main():
     export_func_dict[export_type]()
    
 if __name__ == "__main__":
-    arguments = docopt(__doc__)
-    print(arguments)
-    IGR_DIRS = arguments.data_path
-    export_type = arguments.export_type
-    save_path = '_'.join(IGR_DIRS)
+    export_type = 'phone_err'
+    save_path = os.path.join('export', '_'.join(IGR_DIRS))
     os.chdir('IGRData')
     os.makedirs(save_path, exist_ok=True)
     main()

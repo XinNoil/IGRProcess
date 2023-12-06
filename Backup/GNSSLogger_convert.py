@@ -8,7 +8,7 @@ import datetime
 from datetime import timezone
 import pynmea2
 DATA_DIR = r"processed"
-PHONE_DIRS=['Mate50', 'Mi11', 'Nova2s', 'Oneplus9r', 'Vivox60']
+PHONE_DIRS=['Mate50', 'Mi11', 'Oneplus9r', 'Vivox60']
 ALL_CONVERT_OVERRIDE_FLAG = True
 
 HEADER_DEF = {

@@ -6,6 +6,15 @@ import numpy as np
 import ipdb as pdb
 from tools.tools import get_path_o, get_gnss_files, get_rnx_files, get_sensor_files, scan_devices, scan_rtkfiles, get_trace_names, match_rtkfiles, get_subtypes, get_attribute, convert_RTKLite_log
 
+# python config.py -d IGR230415 -a Tai_Lei -s Circle -t Open -p cuijiayang
+# python config.py -d IGR230419 -a Tai_Lei -s Straight -t Open -p cuijiayang
+# python config.py -d IGR230425 -a Around_55 -s Straight,Straight,Circle,All -t SemiOpen -p lizhaobang,hushunkang,zhangyupeng
+# python config.py -d IGR230426 -a Tai_Lei -s Straight,Straight,Circle,All -t Open -p lizhaobang,hushunkang,zhangyupeng
+# python config.py -d IGR_indoor_test -a 55 -s Straight -t Indoor -i True
+# python config.py -d IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
+# python config.py -d IGR230503 -a Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open -st people
+# python config.py -d IGR230510 -a Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--data_dir', type=str)
 parser.add_argument('-a', '--areas',    type=str, default='')
@@ -17,13 +26,16 @@ parser.add_argument('-i', '--indoor',   type=str2bool, default=False)
 args = parser.parse_args()
 
 origin_path = osp.join('IGRData', args.data_dir, 'origin')
+devices = scan_devices(origin_path)
 processed_path = osp.join('IGRData', args.data_dir, 'processed')
 areas = args.areas.split(',')
 shapes = args.shapes.split(',')
 types  = args.types.split(',')
 peoples = args.peoples.split(',')
+if len(peoples)!=len(devices):
+    peoples = peoples * len(devices)
+print(peoples, devices)
 subtypes = None
-devices = scan_devices(origin_path)
 devices = list(filter(lambda x: osp.isdir(osp.join(origin_path, x)), devices))
 if not args.indoor:
     all_rtkfiles = scan_rtkfiles(origin_path)
@@ -51,7 +63,7 @@ def get_areas_with_rtktiles(rtkfiles, subtype, peoples, origin_path, device):
         rtkfiles_paths = [osp.join(origin_path, 'rtklite', rtkfile) for rtkfile in rtkfiles]
     return [get_near_area(_) for _ in rtkfiles_paths]
 
-for device in devices:
+for device, _people in zip(devices, peoples):
     print(f'\nscan {device}...\n')
     files = os.listdir(get_path_o(origin_path, device))
     gnss_files = get_gnss_files(files, args.subtype, origin_path, device)
@@ -85,7 +97,7 @@ for device in devices:
         _areas = get_attribute(trace_num, 'area', areas, args.subtype, subtypes)
     _shapes = get_attribute(trace_num, 'shape', shapes, args.subtype, subtypes)
     _types = get_attribute(trace_num, 'type', types, args.subtype, subtypes)
-    _peoples = get_attribute(trace_num, 'people', peoples, args.subtype, subtypes)
+    _peoples = get_attribute(trace_num, 'people', [_people], args.subtype, subtypes)
     
     # for people, area in zip(_peoples, _areas):
     #     print(people, area)

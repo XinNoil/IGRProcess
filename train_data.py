@@ -166,6 +166,8 @@ def get_and_save_dataset(phone_dir, trip_dir):
         true_time_start = fix_df.iloc[0].utcTimeMillis + PREPARE_TIME*1000
     except:
         pdb.set_trace()
+        if len(fix_df)==0:
+            return
     fix_df = fix_df.query(f"utcTimeMillis >= {true_time_start}")
 
     if (gngga_df['Quality'].ne(4) & gngga_df['Quality'].ne(5)).any():
@@ -181,6 +183,7 @@ def get_and_save_dataset(phone_dir, trip_dir):
     if ALLSENSOR:
         rot_df, game_df = [align_utc_ela(df, fix_df) for df in (rot_df, game_df)]
     
+    fix_df['utcTimeMillis'] = (np.round(fix_df['utcTimeMillis']/10)*10).astype('int64')
     fix_df.set_index('utcTimeMillis', drop=False, inplace=True)
     gngga_df.set_index('utcTimeMillis', drop=False, inplace=True)
 
@@ -195,6 +198,9 @@ def get_and_save_dataset(phone_dir, trip_dir):
     # 只保留需要的列, 然后进行插值
     acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df, dop_enu_df = [_reindex_and_interpolate(df, desired_index) for df in \
         (acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df, dop_enu_df)]
+
+    if np.sum(fix_df['Source']=='Sensor') == 0:
+        pdb.set_trace()
     if ALLSENSOR:
         rot_df, game_df = [_reindex_and_interpolate(df, desired_index) for df in (rot_df, game_df)]
 
@@ -349,10 +355,13 @@ def generate_all_h5():
                 continue
             else:
                 print(f"#### {phone_dir}/{trip_dir} ####")
-                if INDOOR:
-                    get_and_save_dataset_indoor(phone_dir, trip_dir)
-                else:
-                    get_and_save_dataset(phone_dir, trip_dir)
+                try:
+                    if INDOOR:
+                        get_and_save_dataset_indoor(phone_dir, trip_dir)
+                    else:
+                        get_and_save_dataset(phone_dir, trip_dir)
+                except:
+                    pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
