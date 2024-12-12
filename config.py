@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import ipdb as pdb
 from tools.tools import get_path_o, get_gnss_files, get_rnx_files, get_sensor_files, scan_devices, scan_rtkfiles, get_trace_names, match_rtkfiles, get_subtypes, get_attribute, convert_RTKLite_log
+from datetime import datetime, timedelta
 
 # python config.py -d IGR230415 -a Tai_Lei -s Circle -t Open -p cuijiayang
 # python config.py -d IGR230419 -a Tai_Lei -s Straight -t Open -p cuijiayang
@@ -14,6 +15,12 @@ from tools.tools import get_path_o, get_gnss_files, get_rnx_files, get_sensor_fi
 # python config.py -d IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
 # python config.py -d IGR230503 -a Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open -st people
 # python config.py -d IGR230510 -a Around_55,Tai_Lei,Around_Lib,Between_Building,Around_Playground,Playground -s All -t SemiOpen,Open,SemiOpen,NarrowOpen,SemiOpen,Open
+# python config.py -d IGR231231 -p zhangyupeng,hushunkang
+# python config.py -d IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
+# python config.py -d IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
+# python config.py -d IGR_indoor_230506 -s Straight -t Indoor -i True -st route -p cuijiayang
+# python config.py -d IGR_indoor_241116_hsk -s Straight -t Indoor -i True -st route -p hushunkang
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-d', '--data_dir', type=str)
@@ -71,6 +78,7 @@ for device, _people in zip(devices, peoples):
     sensor_files = get_sensor_files(files, args.subtype, origin_path, device)
 
     if len(gnss_files) and len(sensor_files):
+        print(len(gnss_files), len(sensor_files))
         assert len(gnss_files) == len(sensor_files)
     trace_names = get_trace_names(gnss_files, sensor_files)
     trace_num = len(trace_names)
@@ -103,9 +111,32 @@ for device, _people in zip(devices, peoples):
     #     print(people, area)
     traces = [','.join((args.data_dir, device, trace, gnss_file, rnx_file, sensor_file, rtkfile, _area, _shape, _type, _people)) for trace, gnss_file, rnx_file, sensor_file, rtkfile, _area, _shape, _type, _people in zip(trace_names, gnss_files, rnx_files, sensor_files, rtkfiles, _areas, _shapes, _types, _peoples)]
     
-    print_each(traces)
-    write_file(get_path_o(origin_path, device, 'info_list.csv'), traces)
+    # print_each(traces)
+    # write_file(get_path_o(origin_path, device, 'info_list.csv'), traces)
     for trace in traces:
         if trace not in all_trace:
-            all_trace.append(trace)
+            data_dir, device, _trace, gnss_file, rnx_file, sensor_file, rtkfile, _area, _shape, _type, _people = trace.split(',')
+            # gnss_datenum = trace.replace('_', '')
+            # assert len(gnss_datenum)==12
+            # gnss_datenum = int(gnss_datenum)%1000000
+            # rtkdatenum = int(rtkfile[2:-9])%1000000
+            if not args.indoor:
+                gnss_datenum = datetime.strptime(_trace, "%y_%m_%d_%H_%M_%S")
+                rtkdatenum = datetime.strptime(rtkfile[:14], "%Y%m%d%H%M%S")
+                delta_thres = timedelta(seconds=30)
+                filename = os.path.join('IGRData', args.data_dir, 'origin', device, gnss_file)
+                filesize = os.path.getsize(filename)
+                print(gnss_datenum, rtkdatenum, abs(gnss_datenum-rtkdatenum)<delta_thres, filesize>10000000)
+                if abs(gnss_datenum-rtkdatenum)<delta_thres and filesize>10000000:
+                    all_trace.append(trace)
+            else:
+                all_trace.append(trace)
+
+print_each(all_trace)
 write_file(osp.join('IGRData', args.data_dir, 'info_list.csv'), all_trace)
+
+# python config.py -d IGR241012_hxr -p huxinran
+# python config.py -d IGR241012_mzy -p maziyue
+# python config.py -d IGR241013_lyn -p liuyuening
+# python config.py -d IGR241013_ljl -p lijialin
+# python config.py -d IGR241016_lmy -p limingyang

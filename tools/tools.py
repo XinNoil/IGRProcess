@@ -246,7 +246,7 @@ def get_rnx_files(files, subtype=None, origin_path=None, device=None):
         files = sorted(list(filter(lambda x: osp.isdir(get_path_o(origin_path, device, x)), files)))
         return list_con([sorted(get_rnx_files(os.listdir(get_path_o(origin_path, device, file)))) for file in files])
     else:
-        return sorted(list(filter(lambda x: ('23o' in x) or ('22o' in x), files)))
+        return sorted(list(filter(lambda x: ('24o' in x) or ('23o' in x) or ('22o' in x), files)))
     
 def get_sensor_files(files, subtype=None, origin_path=None, device=None):
     if subtype is not None:
@@ -270,7 +270,7 @@ def get_trace_names(gnss_files, sensor_files):
     if len(gnss_files):
         return [_[11:-4] for _ in gnss_files]
     else:
-        return [_[3:-4].replace('.', '_') for _ in sensor_files]
+        return [_[:-4].replace('.', '-').replace('_', '-') for _ in sensor_files]
 
 def get_rtkfiles_from_all(all_rtkfiles, trace_names):
     all_rtkfiles_nums = [int(_[2:-9]) for _ in all_rtkfiles]
@@ -282,7 +282,7 @@ def get_rtkfiles_from_all(all_rtkfiles, trace_names):
         ind = np.argmin(np.abs(datenum-np.array(all_rtkfiles_nums)))
         if np.abs(all_rtkfiles_nums[ind] - datenum) > 60:
             print(f"[WARNING] closest rtkfile to {trace_name} is {all_rtkfiles[ind]}")
-            pdb.set_trace()
+            # pdb.set_trace()
         rtkfiles.append(all_rtkfiles[ind])
     return rtkfiles
 
@@ -308,7 +308,9 @@ def match_rtkfiles(trace_names, all_rtkfiles, files, subtype, origin_path, devic
     return rtkfiles
 
 def get_attribute(trace_num, attribute, attributes, subtype, subtypes):
-    if len(attributes)==1:
+    if attribute == subtype:
+        attributes = list_con(subtypes)
+    elif len(attributes)==1:
         attributes = attributes * trace_num
     elif subtype is not None and subtype != attribute:
         attributes = attributes * len(subtypes)
@@ -498,3 +500,10 @@ def get_mag_rot(mag_cali, euler):
     euler[:,2] = rerange_deg(90-np.rad2deg(np.arctan2(mag_cali_enu[:,1], mag_cali_enu[:,0])))
     Rots = R.from_euler('yxz', euler, degrees=True)
     return Rots
+
+def read_data_list(dataset, data_list):
+    infos = read_file(data_list)
+    infos = list(filter(lambda x: not x.startswith('#'), infos))
+    trips = list(map(lambda x: x.split(',')[0], infos))
+    persons = list(map(lambda x: x.split(',')[1], infos))
+    return infos, trips, persons

@@ -7,7 +7,7 @@ from tools.tools import get_info, convert_AllSenosr_log
 DATA_DIR = "processed"
 
 def convert_one_dir(trip_dir):
-    print(f"Converting {DATA_DIR}/{trip_dir}")
+    print(f"Converting {trip_dir}")
     folder = os.path.join(trip_dir, "supplementary")
     info = get_info(folder)
     txt_filename = info['sensor_file']

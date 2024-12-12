@@ -181,6 +181,9 @@ def reindex_and_interpolate(df:pd.DataFrame, desired_index:pd.Index, DEBUGLEVEL)
     # 检查重采样结果 这个是历史遗留问题, 能够保证进行的插值是线性插值, 保留着更保险一点
     # 只会在对多普勒速度插值时出现，原因时desired_index的范围超出对多普勒速度的范围
     if 'utcTimeMillis' in target_df.columns:
-        if all(np.round(target_df['utcTimeMillis']).astype("int64") == target_df.index) == False:
-            print("[WARNING] timestamp diff std() != 0")
+        try:
+            if all(np.round(target_df['utcTimeMillis']).astype("int64") == target_df.index) == False:
+                print("[WARNING] timestamp diff std() != 0")
+        except:
+            pdb.set_trace()
     return target_df

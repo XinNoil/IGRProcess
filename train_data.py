@@ -17,7 +17,7 @@ plt.rcParams['figure.figsize'] = [12.0, 3.0]
 
 from mtools import read_file, str2bool
 from tools.load_tools import *
-from tools.tools import magnetic_calibration, do_lowpass, get_mag_rot, rerange_deg, moving_average_filter
+from tools.tools import magnetic_calibration, do_lowpass, get_mag_rot, get_mag_gra_rot, rerange_deg, moving_average_filter
 
 DATA_DIR = "processed"
 not_neg_rollDeg_devices = []
@@ -82,6 +82,9 @@ def get_and_save_dataset_indoor(phone_dir, trip_dir):
     desired_index = pd.RangeIndex(time_start, time_end, 10, name="timestamp")
 
     # 只保留需要的列, 然后进行插值
+    for df in (acc_df, gys_df, mag_df, rot_df, game_df):
+        if len(df) == 0:
+            pdb.set_trace()
     (acc_df, gys_df, mag_df, rot_df, game_df) = [_reindex_and_interpolate(df, desired_index) for df in (acc_df, gys_df, mag_df, rot_df, game_df)]
 
     # 计算重力
@@ -92,8 +95,9 @@ def get_and_save_dataset_indoor(phone_dir, trip_dir):
     mag_cali = magnetic_calibration(mag_df[['MagX', 'MagY', 'MagZ', 'UMagX', 'UMagY', 'UMagZ']].values)
     mag_df[['CMagX', 'CMagY', 'CMagZ']] = mag_cali
 
-    # mag_rot = get_mag_gra_rot(mag_cali, gra)
-    mag_rot = get_mag_rot(mag_cali, rot_df[['rollDeg', 'pitchDeg', 'yawDeg']].values)
+    mag_rot = get_mag_gra_rot(mag_cali, gra)
+    # pdb.set_trace()
+    # mag_rot = get_mag_rot(mag_cali, rot_df[['rollDeg', 'pitchDeg', 'yawDeg']].values)
 
     mag_euler = mag_rot.as_euler('yxz', degrees=True)
     mag_euler[:, 2] -= MAG_DECLINATION
@@ -151,8 +155,11 @@ def get_and_save_dataset(phone_dir, trip_dir):
     if ALLSENSOR:
         rot_df, game_df = tuple(map(_drop_duplicates, (rot_df, game_df)))
     
-    # 筛选fix来源为GPS
-    fix_df = fix_df.query(f"Provider == 'GPS'").drop("Provider", axis=1)
+    if args.filter_provider:
+        # 筛选fix来源为GPS
+        fix_df = fix_df.query(f"Provider == 'GPS'").drop("Provider", axis=1)
+    else:
+        fix_df = fix_df.drop("Provider", axis=1)
 
     # 将 LLA 转换为 ENU
     pos_e, pos_n, pos_u = pm.geodetic2enu(fix_df['LatitudeDegrees'], fix_df['LongitudeDegrees'], fix_df['AltitudeMeters'], ENU_BASE[0], ENU_BASE[1], ENU_BASE[2])
@@ -170,10 +177,11 @@ def get_and_save_dataset(phone_dir, trip_dir):
             return
     fix_df = fix_df.query(f"utcTimeMillis >= {true_time_start}")
 
-    if (gngga_df['Quality'].ne(4) & gngga_df['Quality'].ne(5)).any():
-        gngga_valid_df = gngga_df.query(f"Quality == 4 or Quality == 5")
-        print(f"[WARNING] not all RTKLite Quality is 4 or 5 so Deleting {len(gngga_df)-len(gngga_valid_df)} rows of RTKLite Data")
-        gngga_df = gngga_valid_df
+    if args.filter_groundtruth:
+        if (gngga_df['Quality'].ne(4) & gngga_df['Quality'].ne(5)).any():
+            gngga_valid_df = gngga_df.query(f"Quality == 4 or Quality == 5")
+            print(f"[WARNING] not all RTKLite Quality is 4 or 5 so Deleting {len(gngga_df)-len(gngga_valid_df)} rows of RTKLite Data")
+            gngga_df = gngga_valid_df
     
     # 将 ECEF 测速结果转换为 ENU
     dop_enu_df = get_dop_enu_df(dop_ecef_df)
@@ -196,6 +204,9 @@ def get_and_save_dataset(phone_dir, trip_dir):
     desired_index = pd.RangeIndex(time_start, time_end, 10, name="timestamp")
 
     # 只保留需要的列, 然后进行插值
+    for df in (acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df, dop_enu_df):
+        if len(df) == 0:
+            pdb.set_trace()
     acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df, dop_enu_df = [_reindex_and_interpolate(df, desired_index) for df in \
         (acc_df, gys_df, mag_df, ori_df, fix_df, gngga_df, dop_enu_df)]
 
@@ -355,13 +366,10 @@ def generate_all_h5():
                 continue
             else:
                 print(f"#### {phone_dir}/{trip_dir} ####")
-                try:
-                    if INDOOR:
-                        get_and_save_dataset_indoor(phone_dir, trip_dir)
-                    else:
-                        get_and_save_dataset(phone_dir, trip_dir)
-                except:
-                    pass
+                if INDOOR:
+                    get_and_save_dataset_indoor(phone_dir, trip_dir)
+                else:
+                    get_and_save_dataset(phone_dir, trip_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -372,6 +380,8 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--allsensor',    type=int,      default=1)
     parser.add_argument('-os', '--ori_source',  type=int,      default=0) # 0: auto min, 1: rot, 2: mag, 3: ori
     parser.add_argument('-dl', '--debuglevel',  type=int,      default=0)
+    parser.add_argument('-fp', '--filter_provider',    type=int,      default=1)
+    parser.add_argument('-fg', '--filter_groundtruth',  type=int,      default=1)
     args = parser.parse_args()
     IGR_DIR = args.data_path
     OVERRIDE_FLAG = args.overwrite

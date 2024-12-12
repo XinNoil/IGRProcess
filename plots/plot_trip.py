@@ -6,9 +6,8 @@ Usage:
 Options:
   -s <suffix>, --suffix <suffix>  后缀
 """
-import os
+import os, sys
 
-from docopt import docopt
 import ipdb as pdb
 
 import numpy as np
@@ -62,15 +61,14 @@ def plot_trip(gngga_path):
     plot_traj(gngga_df, zoom=16)
 
 def main():
-    arguments = docopt(__doc__)
-    trip_dir = arguments.trip_dir
-    suffix = arguments.suffix
+    trip_dir = sys.argv[1]
+    suffix = sys.argv[1]
 
     if suffix is None:
         pdb.set_trace()
         suffixs = list(filter(lambda x: x.endswith('csv'), os.listdir(trip_dir)))
         for suffix in suffixs:
-            print(f'python plot_trip.py {arguments.trip_dir} -s {suffix}')
+            print(f'python plot_trip.py {trip_dir} -s {suffix}')
     else:
         plot_trip(os.path.join(trip_dir, suffix))
 
